@@ -10,7 +10,8 @@ public class PurchaseOrder
     public int SupplierID { get; set; }
     public DateTime PODate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
-    public string Status { get; set; } = "Draft"; // Draft, Sent, Received, Cancelled
+    public string Status { get; set; } = "Draft"; // Draft, Sent, Received, Closed (short), Cancelled
+    public string? ClosedReason { get; set; }
     public int? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.Now;
     public DateTime? LastModifiedDate { get; set; }

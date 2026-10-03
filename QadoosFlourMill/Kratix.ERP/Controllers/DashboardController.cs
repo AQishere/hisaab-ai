@@ -64,7 +64,7 @@ public class DashboardController : ControllerBase
             // Get sales today
             var salesToday = await _context.SalesOrders
                 .AsNoTracking()
-                .Where(s => s.SODate.Date == DateTime.Today)
+                .Where(s => s.SODate.Date == DateTime.Today && s.Status != "Cancelled")
                 .SumAsync(s => (decimal?)s.TotalAmount) ?? 0;
 
             var invoicedOpen = await _context.Invoices

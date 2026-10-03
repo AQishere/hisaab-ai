@@ -8,6 +8,8 @@ const TONE_BY_STATUS: Record<string, Tone> = {
   Sent: 'info',
   Received: 'success',
   Cancelled: 'error',
+  Closed: 'neutral',
+  Voided: 'neutral',
   GateEntry: 'neutral',
   Weighed: 'info',
   QCApproved: 'warning',
@@ -37,6 +39,7 @@ const LABELS: Record<string, string> = {
   NotDispatched: 'Not dispatched',
   PartiallyDispatched: 'Partly dispatched',
   PartiallyPaid: 'Partly paid',
+  Closed: 'Closed short',
 };
 
 const TONE_COLOR: Record<Tone, string> = {

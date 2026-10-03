@@ -127,7 +127,7 @@ public class SalesOrdersController : ControllerBase
         if (dto.DispatchedQuantity > lineItem.Quantity - lineItem.DispatchedQuantity)
             return BadRequest("Cannot dispatch more than ordered quantity");
 
-        if (order.Status is "Cancelled" or "Dispatched") return BadRequest("This order cannot be dispatched.");
+        if (order.Status is "Cancelled" or "Closed" or "Dispatched") return BadRequest("This order cannot be dispatched.");
         if (string.IsNullOrWhiteSpace(dto.TruckNumber) || string.IsNullOrWhiteSpace(dto.DriverName)) return BadRequest("Truck and driver are required.");
         var product = await context.Products.FindAsync(lineItem.ProductID);
         if (product!.Unit == "bag" && dto.DispatchedQuantity != decimal.Truncate(dto.DispatchedQuantity)) return BadRequest("Dispatch a whole number of bags.");
@@ -173,6 +173,46 @@ public class SalesOrdersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{id}/cancel")]
+    public async Task<ActionResult> Cancel(int id, ReasonDTO dto)
+    {
+        var order = await context.SalesOrders.Include(so => so.SOLineItems).FirstOrDefaultAsync(so => so.SalesOrderID == id);
+        if (order == null)
+            return NotFound();
+
+        if (order.Status is not ("Quotation" or "Confirmed") || order.SOLineItems.Any(li => li.DispatchedQuantity > 0))
+            return BadRequest("Only an order with nothing dispatched can be cancelled; close it short instead.");
+
+        var reason = BusinessRules.Reason(dto.Reason);
+        if (reason == null)
+            return BadRequest("Give a reason of up to 500 characters");
+
+        order.Status = "Cancelled";
+        order.ClosedReason = reason;
+        await context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPut("{id}/close")]
+    public async Task<ActionResult> CloseShort(int id, ReasonDTO dto)
+    {
+        var order = await context.SalesOrders.FindAsync(id);
+        if (order == null)
+            return NotFound();
+
+        if (order.Status != "PartiallyDispatched")
+            return BadRequest("Only a partly dispatched order can be closed short.");
+
+        var reason = BusinessRules.Reason(dto.Reason);
+        if (reason == null)
+            return BadRequest("Give a reason of up to 500 characters");
+
+        order.Status = "Closed";
+        order.ClosedReason = reason;
+        await context.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpGet("{id}/dispatches")]
     public async Task<ActionResult> DispatchHistory(int id) => Ok(await context.Dispatches.Where(d => d.SalesOrderID == id)
         .OrderByDescending(d => d.DispatchedAt).Select(d => new { d.DispatchID, d.TruckNumber, d.DriverName, d.DispatchedAt,
@@ -192,6 +232,7 @@ public class SalesOrdersController : ControllerBase
             SODate = so.SODate,
             ExpectedDeliveryDate = so.ExpectedDeliveryDate,
             Status = so.Status,
+            ClosedReason = so.ClosedReason,
             TotalAmount = so.TotalAmount,
             LineItems = so.SOLineItems?.Select(li => new SOLineItemDTO
             {

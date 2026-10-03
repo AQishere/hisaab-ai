@@ -2,8 +2,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kratix.ERP.Data;
 
+// A rule violation found while writing; BusinessWriteFilter returns its message as a 400.
+public sealed class BusinessRuleException(string message) : Exception(message);
+
 public static class BusinessRules
 {
+    // Weighbridge loads rarely match the order exactly. Keep in sync with CK_POLine_Quantities.
+    public const decimal OverReceiptTolerance = 0.05m;
+    public static decimal MaxReceivable(decimal ordered) => decimal.Round(ordered * (1 + OverReceiptTolerance), 3, MidpointRounding.ToZero);
+
+    public static string? Reason(string? reason) => string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500 ? null : reason.Trim();
+
     public static bool Quantity(decimal value) => value > 0 && value <= 999999999999.999m && decimal.Round(value, 3) == value;
     public static bool Money(decimal value, bool allowZero = false) =>
         (allowZero ? value >= 0 : value > 0) && value <= 9999999999999.99m && decimal.Round(value, 2) == value;

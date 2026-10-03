@@ -62,12 +62,16 @@ public class InvoicesController : ControllerBase
         if (order == null)
             return BadRequest("Sales Order not found");
 
-        if (order.Status != "Dispatched")
-            return BadRequest("Order must be dispatched before invoicing");
+        if (order.Status is not ("Dispatched" or "Closed"))
+            return BadRequest("Order must be fully dispatched or closed short before invoicing");
 
         if (await context.Invoices.AnyAsync(i => i.SalesOrderID == dto.SalesOrderID))
             return BadRequest("This sales order has already been invoiced");
 
+        // Bill what was delivered: equal to the order total unless the order was closed short.
+        var billedLines = order.SOLineItems.Where(li => li.DispatchedQuantity > 0)
+            .Select(li => (Line: li, Amount: BusinessRules.Amount(li.DispatchedQuantity, li.RatePerUnit))).ToList();
+        var billedTotal = billedLines.Sum(b => b.Amount);
         var invoiceNumber = await GenerateInvoiceNumber();
         var dueDate = dto.InvoiceDate.AddDays(dto.DueDays);
 
@@ -78,20 +82,20 @@ public class InvoicesController : ControllerBase
             CustomerID = order.CustomerID,
             InvoiceDate = dto.InvoiceDate,
             TotalQuantity = order.SOLineItems.Sum(li => li.DispatchedQuantity),
-            TotalAmount = order.TotalAmount,
+            TotalAmount = billedTotal,
             TaxAmount = dto.TaxAmount,
-            NetAmount = order.TotalAmount + dto.TaxAmount,
+            NetAmount = billedTotal + dto.TaxAmount,
             Status = "Unpaid",
             DueDate = dueDate,
             CreatedDate = DateTime.Now
         };
 
-        foreach (var line in order.SOLineItems)
+        foreach (var (line, amount) in billedLines)
             invoice.Lines.Add(new InvoiceLine
             {
                 ProductID = line.ProductID, ProductCode = line.Product!.ProductCode,
                 ProductName = line.Product.ProductName, Unit = line.Product.Unit, KgPerBag = line.Product.KgPerBag,
-                Quantity = line.DispatchedQuantity, RatePerUnit = line.RatePerUnit, TotalAmount = line.TotalAmount
+                Quantity = line.DispatchedQuantity, RatePerUnit = line.RatePerUnit, TotalAmount = amount
             });
 
         context.Invoices.Add(invoice);

@@ -25,7 +25,9 @@ public static class StockLedger
     public static void Change(AppDbContext db, Inventory inventory, decimal delta, string unit,
         string type, string reference, ClaimsPrincipal user, string? reason = null)
     {
-        if (inventory.QuantityAvailable + delta < 0) throw new InvalidOperationException("Stock cannot be negative.");
+        if (inventory.QuantityAvailable + delta < 0) throw new BusinessRuleException("Stock cannot be negative.");
+        // An emptied lot that is refilled is new stock for first-in-first-out dispatch.
+        if (inventory.QuantityAvailable == 0 && delta > 0) inventory.ReceivedAt = DateTime.Now;
         inventory.QuantityAvailable += delta;
         inventory.LastUpdatedDate = DateTime.Now;
         db.StockMovements.Add(new StockMovement

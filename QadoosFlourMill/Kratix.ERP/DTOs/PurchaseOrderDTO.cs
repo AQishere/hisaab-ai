@@ -9,6 +9,7 @@ public class PurchaseOrderDTO
     public DateTime PODate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public string Status { get; set; }
+    public string? ClosedReason { get; set; }
     public decimal TotalAmount { get; set; }
     public List<POLineItemDTO> LineItems { get; set; }
     public DateTime CreatedDate { get; set; }

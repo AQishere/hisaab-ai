@@ -7,7 +7,8 @@ public class SalesOrder
     public int CustomerID { get; set; }
     public DateTime SODate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
-    public string Status { get; set; } = "Quotation"; // Quotation, Confirmed, PartiallyDispatched, Dispatched, Delivered
+    public string Status { get; set; } = "Quotation"; // Quotation, Confirmed, PartiallyDispatched, Dispatched, Closed (short), Cancelled
+    public string? ClosedReason { get; set; }
     public decimal TotalAmount { get; set; }
     public int? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.Now;

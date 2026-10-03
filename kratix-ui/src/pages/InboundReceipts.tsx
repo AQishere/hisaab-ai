@@ -3,6 +3,9 @@ import { Alert, Box, Button, MenuItem, Step, StepLabel, Stepper, TextField, Typo
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
 import PackagingReceiptButton from '../components/PackagingReceiptButton';
+import ReasonDialog from '../components/ReasonDialog';
+import { useAuth } from '../context/AuthContext';
+import { canPurchase } from '../auth/permissions';
 import type { InboundReceipt, PurchaseOrder, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { useToast } from '../context/ToastContext';
@@ -48,6 +51,8 @@ const InboundReceipts: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [viewing, setViewing] = useState<InboundReceipt | null>(null);
+  const [voiding, setVoiding] = useState(false);
+  const { user } = useAuth();
 
   const openPOs = orders.data?.filter((o) => o.status === 'Sent') ?? [];
   const gatePO = openPOs.find((o) => String(o.poid) === gate.poid);
@@ -334,13 +339,21 @@ const InboundReceipts: React.FC = () => {
           onClose={() => setViewing(null)}
           actions={
             NEXT_STEP[viewing.status] && (
-              <Button variant="contained" onClick={() => openStep(viewing, NEXT_STEP[viewing.status]!.kind)}>
-                {NEXT_STEP[viewing.status]!.label}
-              </Button>
+              <>
+                {canPurchase(user?.role) && (
+                  <Button color="inherit" onClick={() => setVoiding(true)} sx={{ mr: 'auto' }}>
+                    Void receipt
+                  </Button>
+                )}
+                <Button variant="contained" onClick={() => openStep(viewing, NEXT_STEP[viewing.status]!.kind)}>
+                  {NEXT_STEP[viewing.status]!.label}
+                </Button>
+              </>
             )
           }
         >
-          {viewing.receiptType === 'Weighed' ? <ReceiptStepper status={viewing.status} /> : <Alert severity="info">Counted packaging receipt: {formatNumber(viewing.receivedQuantity)} pieces</Alert>}
+          {viewing.status === 'Voided' && <Alert severity="info">Voided: {viewing.voidReason}</Alert>}
+          {viewing.receiptType === 'Weighed' ? viewing.status !== 'Voided' && <ReceiptStepper status={viewing.status} /> : <Alert severity="info">Counted packaging receipt: {formatNumber(viewing.receivedQuantity)} pieces</Alert>}
           <SectionTitle>Truck</SectionTitle>
           <InfoGrid
             items={[
@@ -374,6 +387,12 @@ const InboundReceipts: React.FC = () => {
             </>
           )}
         </DetailDialog>
+      )}
+      {viewing && (
+        <ReasonDialog open={voiding} title={`Void ${viewing.receiptNumber}`} submitLabel="Void receipt"
+          description="Use this for a truck that was turned away or a load that cannot be accepted. Nothing is added to stock and the record is kept."
+          url={`/inboundreceipts/${viewing.receiptID}/void`} success={`${viewing.receiptNumber} voided`}
+          onClose={() => setVoiding(false)} onDone={() => { setVoiding(false); setViewing(null); receipts.reload(); orders.reload(); }} />
       )}
     </Box>
   );

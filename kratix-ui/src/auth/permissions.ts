@@ -29,6 +29,8 @@ export const PAGE_ACCESS: Record<string, Role[]> = {
   '/payments': SALES_FINANCE,
 };
 
+export const canPurchase = (role: string | undefined): boolean => PURCHASING.includes(role as Role);
+
 export const canAccess = (role: string | undefined, path: string): boolean =>
   !!role && (PAGE_ACCESS[path]?.includes(role as Role) ?? false);
 

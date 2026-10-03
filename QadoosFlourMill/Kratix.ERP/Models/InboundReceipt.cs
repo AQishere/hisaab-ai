@@ -35,7 +35,8 @@ public class InboundReceipt
     public string? LotNumber { get; set; }
 
     // Status and tracking
-    public string Status { get; set; } = "GateEntry"; // GateEntry → Weighed → QCPending → QCApproved → Received
+    public string Status { get; set; } = "GateEntry"; // GateEntry → Weighed → QCApproved/Rejected → Received, or Voided
+    public string? VoidReason { get; set; }
     public int? ReceivedBy { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.Now;

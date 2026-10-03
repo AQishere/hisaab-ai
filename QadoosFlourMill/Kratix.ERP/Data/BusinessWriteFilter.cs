@@ -29,8 +29,18 @@ public sealed class BusinessWriteFilter(AppDbContext db) : IAsyncActionFilter
             IF @result < 0 THROW 51000, 'Another update is taking too long. Please retry.', 1;
             """);
         var executed = await next();
+        if (executed.Exception is BusinessRuleException rule)
+        {
+            executed.Result = new BadRequestObjectResult(rule.Message);
+            executed.ExceptionHandled = true;
+        }
+        else if (executed.Exception is DbUpdateException)
+        {
+            executed.Result = new ConflictObjectResult("The change conflicts with existing records. Refresh and try again.");
+            executed.ExceptionHandled = true;
+        }
         var status = (executed.Result as IStatusCodeActionResult)?.StatusCode ?? 200;
-        if (executed.Exception == null && !executed.Canceled && status < 400)
+        if (!executed.ExceptionHandled && executed.Exception == null && !executed.Canceled && status < 400)
             await transaction.CommitAsync();
         // Disposal rolls back failed validation, exceptions, and partial saves.
     }

@@ -235,10 +235,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Invoice>().HasIndex(x => x.SalesOrderID).IsUnique();
         modelBuilder.Entity<Invoice>().ToTable(t => t.HasCheckConstraint("CK_Invoice_Amounts", "[TotalAmount] >= 0 AND [TaxAmount] >= 0 AND [NetAmount] = [TotalAmount] + [TaxAmount] AND [Status] IN ('Unpaid','PartiallyPaid','Paid')"));
         modelBuilder.Entity<Payment>().ToTable(t => t.HasCheckConstraint("CK_Payment_Amount", "[PaymentAmount] > 0"));
-        modelBuilder.Entity<POLineItem>().ToTable(t => t.HasCheckConstraint("CK_POLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity]"));
+        modelBuilder.Entity<POLineItem>().ToTable(t => t.HasCheckConstraint("CK_POLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity] * 1.05"));
         modelBuilder.Entity<SOLineItem>().ToTable(t => t.HasCheckConstraint("CK_SOLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [DispatchedQuantity] >= 0 AND [DispatchedQuantity] <= [Quantity] AND [DispatchStatus] IN ('NotDispatched','PartiallyDispatched','Dispatched')"));
-        modelBuilder.Entity<PurchaseOrder>().ToTable(t => t.HasCheckConstraint("CK_PO_Status", "[Status] IN ('Draft','Sent','Received','Cancelled')"));
-        modelBuilder.Entity<SalesOrder>().ToTable(t => t.HasCheckConstraint("CK_SO_Status", "[Status] IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Cancelled')"));
+        modelBuilder.Entity<PurchaseOrder>().ToTable(t => t.HasCheckConstraint("CK_PO_Status", "[Status] IN ('Draft','Sent','Received','Closed','Cancelled')"));
+        modelBuilder.Entity<SalesOrder>().ToTable(t => t.HasCheckConstraint("CK_SO_Status", "[Status] IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Closed','Cancelled')"));
         modelBuilder.Entity<ProductionBatch>().ToTable(t => t.HasCheckConstraint("CK_Batch_Status", "[Status] IN ('Planned','InProgress','Completed') AND [TotalInputQuantity] >= 0 AND [TotalOutputQuantity] >= 0 AND [TotalWasteQuantity] >= 0"));
         modelBuilder.Entity<BatchMaterial>().Property(x => x.KgPerBag).HasPrecision(15, 3);
         modelBuilder.Entity<BatchMaterial>().HasOne(x => x.SourceInventory).WithMany().HasForeignKey(x => x.SourceInventoryID).OnDelete(DeleteBehavior.NoAction);
@@ -246,7 +246,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BatchMaterial>().ToTable(t => t.HasCheckConstraint("CK_Material_Quantities", "[Quantity] > 0 AND [PackedQuantityKg] >= 0 AND [PackedQuantityKg] <= [Quantity] AND [MaterialType] IN ('Input','Output','Waste')"));
         modelBuilder.Entity<InboundReceipt>().Property(x => x.ReceivedQuantity).HasPrecision(15, 3);
         modelBuilder.Entity<InboundReceipt>().Property(x => x.ReceiptType).HasMaxLength(16).HasDefaultValue("Weighed");
-        modelBuilder.Entity<InboundReceipt>().ToTable(t => t.HasCheckConstraint("CK_Receipt_Status", "[Status] IN ('GateEntry','Weighed','QCApproved','Rejected','Received') AND [ReceiptType] IN ('Weighed','Counted') AND ([ReceivedQuantity] IS NULL OR [ReceivedQuantity] > 0)"));
+        modelBuilder.Entity<InboundReceipt>().ToTable(t => t.HasCheckConstraint("CK_Receipt_Status", "[Status] IN ('GateEntry','Weighed','QCApproved','Rejected','Received','Voided') AND [ReceiptType] IN ('Weighed','Counted') AND ([ReceivedQuantity] IS NULL OR [ReceivedQuantity] > 0)"));
+
+        modelBuilder.Entity<InboundReceipt>().Property(x => x.VoidReason).HasMaxLength(500);
+        modelBuilder.Entity<PurchaseOrder>().Property(x => x.ClosedReason).HasMaxLength(500);
+        modelBuilder.Entity<SalesOrder>().Property(x => x.ClosedReason).HasMaxLength(500);
 
         modelBuilder.Entity<StockMovement>().Property(x => x.QuantityChange).HasPrecision(15, 3);
         modelBuilder.Entity<StockMovement>().Property(x => x.Unit).HasMaxLength(16);

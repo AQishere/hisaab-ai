@@ -115,15 +115,43 @@ public class PurchaseOrdersController : ControllerBase
         var allowed = order.Status == dto.Status ||
             (order.Status == "Draft" && (dto.Status == "Sent" || dto.Status == "Cancelled")) ||
             (order.Status == "Sent" && dto.Status == "Cancelled");
-        if (!allowed || order.Status is "Received" or "Cancelled")
-            return BadRequest("Only draft orders can be sent; received and cancelled orders cannot be changed.");
+        if (!allowed || order.Status is "Received" or "Closed" or "Cancelled")
+            return BadRequest("Only draft orders can be sent; received, closed and cancelled orders cannot be changed.");
         if (dto.Status == "Sent" && !await context.POLineItems.AnyAsync(i => i.POID == id))
             return BadRequest("Add order lines before sending the order.");
-        if (dto.Status == "Cancelled" && await context.InboundReceipts.AnyAsync(r => r.POID == id && r.Status != "Rejected"))
-            return BadRequest("This order has receipts and cannot be cancelled.");
+        if (dto.Status == "Cancelled" && await context.InboundReceipts.AnyAsync(r => r.POID == id && r.Status != "Rejected" && r.Status != "Voided"))
+            return BadRequest("This order has receipts. Void open receipts, or close the order short if stock was received.");
         order.ExpectedDeliveryDate = dto.ExpectedDeliveryDate;
         order.Status = dto.Status;
 
+        await context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPut("{id}/close")]
+    [Authorize(Policy = Policies.Purchasing)]
+    public async Task<ActionResult> CloseShort(int id, ReasonDTO dto)
+    {
+        var order = await context.PurchaseOrders.FindAsync(id);
+        if (order == null)
+            return NotFound();
+
+        if (order.Status != "Sent")
+            return BadRequest("Only a sent order can be closed short.");
+
+        var reason = BusinessRules.Reason(dto.Reason);
+        if (reason == null)
+            return BadRequest("Give a reason of up to 500 characters");
+
+        var receipts = await context.InboundReceipts.Where(r => r.POID == id).Select(r => r.Status).ToListAsync();
+        if (receipts.Any(s => s is "GateEntry" or "Weighed" or "QCApproved"))
+            return BadRequest("Finish or void the open receipts before closing this order.");
+        if (!receipts.Contains("Received"))
+            return BadRequest("Nothing has been received on this order; cancel it instead.");
+
+        order.Status = "Closed";
+        order.ClosedReason = reason;
+        order.LastModifiedDate = DateTime.Now;
         await context.SaveChangesAsync();
         return NoContent();
     }
@@ -158,6 +186,7 @@ public class PurchaseOrdersController : ControllerBase
             PODate = po.PODate,
             ExpectedDeliveryDate = po.ExpectedDeliveryDate,
             Status = po.Status,
+            ClosedReason = po.ClosedReason,
             TotalAmount = po.POLineItems?.Sum(li => li.TotalAmount) ?? 0,
             LineItems = po.POLineItems?.Select(li => new POLineItemDTO
             {

@@ -3,6 +3,7 @@ import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/materi
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
 import { DispatchHistory } from '../components/HistoryTables';
+import ReasonDialog from '../components/ReasonDialog';
 import type { Customer, Product, SalesOrder, SOLineItem } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { useToast } from '../context/ToastContext';
@@ -21,6 +22,7 @@ const SalesOrders: React.FC = () => {
   const toast = useToast();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [ending, setEnding] = useState<'cancel' | 'close' | null>(null);
   const [customerID, setCustomerID] = useState('');
   const [soDate, setSoDate] = useState(todayISO());
   const [expected, setExpected] = useState('');
@@ -185,6 +187,16 @@ const SalesOrders: React.FC = () => {
             </>
           }
           onClose={() => setSelected(null)}
+          actions={
+            <>
+              {['Quotation', 'Confirmed'].includes(selected.status) && selected.lineItems.every((l) => l.dispatchedQuantity === 0) && (
+                <Button color="inherit" onClick={() => setEnding('cancel')}>Cancel order</Button>
+              )}
+              {selected.status === 'PartiallyDispatched' && (
+                <Button color="inherit" onClick={() => setEnding('close')}>Close short</Button>
+              )}
+            </>
+          }
         >
           <InfoGrid
             items={[
@@ -230,6 +242,10 @@ const SalesOrders: React.FC = () => {
           {selected.status === 'Dispatched' && (
             <Alert severity="success">Fully dispatched. You can now create the invoice on the Invoices page.</Alert>
           )}
+          {selected.status === 'Closed' && (
+            <Alert severity="info">Closed short: {selected.closedReason}. Invoice the dispatched quantity on the Invoices page.</Alert>
+          )}
+          {selected.status === 'Cancelled' && <Alert severity="info">Cancelled: {selected.closedReason}</Alert>}
           <DispatchHistory orderID={selected.salesOrderID} />
         </DetailDialog>
       )}
@@ -263,6 +279,14 @@ const SalesOrders: React.FC = () => {
           <TextField required label="Driver name" value={dispatch.driverName} onChange={(e) => setDispatch({ ...dispatch, driverName: e.target.value })} />
         </Box>
       </FormDialog>
+      {selected && (
+        <ReasonDialog open={!!ending} title={ending === 'cancel' ? `Cancel ${selected.soNumber}` : `Close ${selected.soNumber} short`}
+          submitLabel={ending === 'cancel' ? 'Cancel order' : 'Close order'}
+          description={ending === 'cancel' ? 'Nothing has been dispatched on this order.' : 'No further dispatches. The invoice will bill only what was dispatched.'}
+          url={`/salesorders/${selected.salesOrderID}/${ending ?? 'close'}`}
+          success={ending === 'cancel' ? `${selected.soNumber} cancelled` : `${selected.soNumber} closed short`}
+          onClose={() => setEnding(null)} onDone={() => { setEnding(null); setSelected(null); orders.reload(); }} />
+      )}
     </Box>
   );
 };

@@ -318,6 +318,10 @@ namespace Kratix.ERP.Migrations
                     b.Property<string>("TruckNumber")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("WarehouseID")
                         .HasColumnType("int");
 
@@ -336,7 +340,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("InboundReceipts", t =>
                         {
-                            t.HasCheckConstraint("CK_Receipt_Status", "[Status] IN ('GateEntry','Weighed','QCApproved','Rejected','Received') AND [ReceiptType] IN ('Weighed','Counted') AND ([ReceivedQuantity] IS NULL OR [ReceivedQuantity] > 0)");
+                            t.HasCheckConstraint("CK_Receipt_Status", "[Status] IN ('GateEntry','Weighed','QCApproved','Rejected','Received','Voided') AND [ReceiptType] IN ('Weighed','Counted') AND ([ReceivedQuantity] IS NULL OR [ReceivedQuantity] > 0)");
                         });
                 });
 
@@ -547,7 +551,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("POLineItems", t =>
                         {
-                            t.HasCheckConstraint("CK_POLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity]");
+                            t.HasCheckConstraint("CK_POLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity] * 1.05");
                         });
                 });
 
@@ -746,6 +750,10 @@ namespace Kratix.ERP.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("POID"));
 
+                    b.Property<string>("ClosedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
@@ -783,7 +791,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("PurchaseOrders", t =>
                         {
-                            t.HasCheckConstraint("CK_PO_Status", "[Status] IN ('Draft','Sent','Received','Cancelled')");
+                            t.HasCheckConstraint("CK_PO_Status", "[Status] IN ('Draft','Sent','Received','Closed','Cancelled')");
                         });
                 });
 
@@ -852,6 +860,10 @@ namespace Kratix.ERP.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SalesOrderID"));
 
+                    b.Property<string>("ClosedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
@@ -890,7 +902,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("SalesOrders", t =>
                         {
-                            t.HasCheckConstraint("CK_SO_Status", "[Status] IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Cancelled')");
+                            t.HasCheckConstraint("CK_SO_Status", "[Status] IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Closed','Cancelled')");
                         });
                 });
 

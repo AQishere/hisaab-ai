@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Button, MenuItem, TextField } from '@mui/material';
+import { Alert, Box, Button, MenuItem, TextField } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
 import type { Product, PurchaseOrder, Supplier } from '../api/types';
@@ -12,9 +12,10 @@ import FormDialog from '../components/ui/FormDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
+import ReasonDialog from '../components/ReasonDialog';
 import LineItemsEditor, { emptyLine, linesValid, toLinePayload, type LineDraft } from '../components/LineItemsEditor';
 
-const STATUSES = ['All', 'Draft', 'Sent', 'Received', 'Cancelled'];
+const STATUSES = ['All', 'Draft', 'Sent', 'Received', 'Closed', 'Cancelled'];
 
 const PurchaseOrders: React.FC = () => {
   const orders = useFetch<PurchaseOrder[]>('/purchaseorders');
@@ -68,6 +69,8 @@ const PurchaseOrders: React.FC = () => {
       setSaving(false);
     }
   };
+
+  const [closing, setClosing] = useState(false);
 
   const setStatus = async (po: PurchaseOrder, status: string) => {
     setBusy(true);
@@ -207,6 +210,11 @@ const PurchaseOrders: React.FC = () => {
                   Delete draft
                 </Button>
               )}
+              {selected.status === 'Sent' && selected.lineItems.some((l) => l.receivedQuantity > 0) && (
+                <Button color="inherit" disabled={busy} onClick={() => setClosing(true)}>
+                  Close short
+                </Button>
+              )}
               {(selected.status === 'Draft' || selected.status === 'Sent') && (
                 <Button color="inherit" disabled={busy} onClick={() => setStatus(selected, 'Cancelled')}>
                   Cancel order
@@ -228,6 +236,7 @@ const PurchaseOrders: React.FC = () => {
               ['Total', formatMoney(selected.totalAmount)],
             ]}
           />
+          {selected.closedReason && <Alert severity="info">Closed short: {selected.closedReason}</Alert>}
           <SectionTitle>Items</SectionTitle>
           <DataTable
             rows={selected.lineItems}
@@ -253,6 +262,12 @@ const PurchaseOrders: React.FC = () => {
         onConfirm={remove}
         onClose={() => setConfirmDelete(false)}
       />
+      {selected && (
+        <ReasonDialog open={closing} title={`Close ${selected.poNumber} short`} submitLabel="Close order"
+          description="Stops further deliveries on this order. Everything already received stays in stock."
+          url={`/purchaseorders/${selected.poid}/close`} success={`${selected.poNumber} closed short`}
+          onClose={() => setClosing(false)} onDone={() => { setClosing(false); setSelected(null); orders.reload(); }} />
+      )}
     </Box>
   );
 };

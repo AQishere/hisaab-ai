@@ -62,6 +62,7 @@ export interface PurchaseOrder {
   poDate: string;
   expectedDeliveryDate: string | null;
   status: string;
+  closedReason: string | null;
   totalAmount: number;
   lineItems: POLineItem[];
   createdDate: string;
@@ -92,6 +93,7 @@ export interface InboundReceipt {
   binCode: string | null;
   lotNumber: string | null;
   status: string;
+  voidReason: string | null;
   receivedDate: string | null;
   createdDate: string;
 }
@@ -166,6 +168,7 @@ export interface SalesOrder {
   soDate: string;
   expectedDeliveryDate: string | null;
   status: string;
+  closedReason: string | null;
   totalAmount: number;
   lineItems: SOLineItem[];
   createdDate: string;

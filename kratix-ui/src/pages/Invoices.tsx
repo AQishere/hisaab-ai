@@ -36,11 +36,13 @@ const Invoices: React.FC = () => {
 
   const invoiceable = useMemo(() => {
     const invoiced = new Set(invoices.data?.map((i) => i.salesOrderID));
-    return orders.data?.filter((o) => o.status === 'Dispatched' && !invoiced.has(o.salesOrderID)) ?? [];
+    return orders.data?.filter((o) => (o.status === 'Dispatched' || o.status === 'Closed') && !invoiced.has(o.salesOrderID)) ?? [];
   }, [orders.data, invoices.data]);
 
   const order = invoiceable.find((o) => String(o.salesOrderID) === form.salesOrderID);
   const tax = Number(form.taxAmount) || 0;
+  // Invoices bill the dispatched quantity, which is less than the order total when an order was closed short.
+  const subtotal = order?.lineItems.reduce((sum, l) => sum + Math.round(l.dispatchedQuantity * l.ratePerUnit * 100) / 100, 0) ?? 0;
 
   const create = async () => {
     setSaving(true);
@@ -172,9 +174,9 @@ const Invoices: React.FC = () => {
           <Box sx={{ bgcolor: 'action.hover', borderRadius: '8px', p: 2 }}>
             <InfoGrid
               items={[
-                ['Subtotal', formatMoney(order.totalAmount)],
+                ['Subtotal', formatMoney(subtotal)],
                 ['Tax', formatMoney(tax)],
-                ['Net amount', <strong key="n">{formatMoney(order.totalAmount + tax)}</strong>],
+                ['Net amount', <strong key="n">{formatMoney(subtotal + tax)}</strong>],
                 ['Due date', formatDate(addDays(form.invoiceDate, Number(form.dueDays) || 15))],
               ]}
             />

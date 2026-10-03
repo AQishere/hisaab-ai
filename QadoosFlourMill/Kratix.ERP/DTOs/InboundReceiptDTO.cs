@@ -26,6 +26,7 @@ public class InboundReceiptDTO
     public string BinCode { get; set; }
     public string LotNumber { get; set; }
     public string Status { get; set; }
+    public string? VoidReason { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateTime CreatedDate { get; set; }
 }
@@ -56,7 +57,7 @@ public class UpdateQCDTO
 public class CreateGRNDTO
 {
     public int WarehouseID { get; set; }
-    public string BinCode { get; set; }
+    public string? BinCode { get; set; }
     public string LotNumber { get; set; }
 }
 
@@ -70,4 +71,9 @@ public class CountReceiptDTO
     public string LotNumber { get; set; } = "";
     public string TruckNumber { get; set; } = "";
     public string DriverName { get; set; } = "";
+}
+
+public class ReasonDTO
+{
+    public string? Reason { get; set; }
 }

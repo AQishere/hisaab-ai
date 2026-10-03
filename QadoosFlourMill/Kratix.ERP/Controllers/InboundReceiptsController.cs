@@ -126,7 +126,10 @@ public class InboundReceiptsController : ControllerBase
         if (receipt == null)
             return NotFound();
 
-        if (receipt.Status != "Weighed" || receipt.NetWeight is null or <= 0)
+        if (receipt.Status != "Weighed")
+            return BadRequest("Only a weighed receipt awaiting inspection can be quality checked");
+
+        if (receipt.NetWeight is null or <= 0)
             return BadRequest("Receipt must have a positive net weight before quality inspection");
 
         if (dto.Moisture < 0 || dto.Moisture > 100 || dto.Impurities < 0 || dto.Impurities > 100)
@@ -182,8 +185,9 @@ public class InboundReceiptsController : ControllerBase
             return BadRequest("Receipt must identify one Purchase Order line");
 
         var receivedWeight = receipt.NetWeight.Value;
-        if (receivedWeight > lineItem.Quantity - lineItem.ReceivedQuantity)
-            return BadRequest("Received weight exceeds the remaining Purchase Order quantity");
+        var receivable = BusinessRules.MaxReceivable(lineItem.Quantity) - lineItem.ReceivedQuantity;
+        if (receivedWeight > receivable)
+            return BadRequest($"Received weight exceeds the Purchase Order quantity plus the {BusinessRules.OverReceiptTolerance:P0} weighbridge tolerance ({Math.Max(receivable, 0):0.###} kg can still be accepted). Void this receipt and raise a new order for the excess.");
 
         var inventory = await StockLedger.GetOrCreate(context, lineItem.ProductID, dto.WarehouseID, dto.BinCode, dto.LotNumber);
         StockLedger.Change(context, inventory, receivedWeight, "kg", "Receipt", receipt.ReceiptNumber, User);
@@ -192,13 +196,34 @@ public class InboundReceiptsController : ControllerBase
         po.Status = po.POLineItems.All(li => li.ReceivedQuantity >= li.Quantity) ? "Received" : "Sent";
         receipt.POLineItemID = lineItem.LineItemID;
         receipt.WarehouseID = dto.WarehouseID;
-        receipt.BinCode = dto.BinCode;
-        receipt.LotNumber = dto.LotNumber;
+        receipt.BinCode = inventory.BinCode;
+        receipt.LotNumber = inventory.LotNumber;
         receipt.ReceivedDate = DateTime.Now;
         receipt.ReceivedQuantity = receivedWeight;
         receipt.ReceivedBy = StockLedger.UserId(User);
         receipt.Status = "Received";
 
+        await context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPut("{id}/void")]
+    [Authorize(Policy = Policies.Purchasing)]
+    public async Task<ActionResult> Void(int id, ReasonDTO dto)
+    {
+        var receipt = await context.InboundReceipts.FindAsync(id);
+        if (receipt == null)
+            return NotFound();
+
+        if (receipt.Status is not ("GateEntry" or "Weighed" or "QCApproved"))
+            return BadRequest("Only a receipt that has not been received into stock can be voided");
+
+        var reason = BusinessRules.Reason(dto.Reason);
+        if (reason == null)
+            return BadRequest("Give a reason of up to 500 characters");
+
+        receipt.Status = "Voided";
+        receipt.VoidReason = reason;
         await context.SaveChangesAsync();
         return NoContent();
     }
@@ -262,6 +287,7 @@ public class InboundReceiptsController : ControllerBase
             BinCode = r.BinCode,
             LotNumber = r.LotNumber,
             Status = r.Status,
+            VoidReason = r.VoidReason,
             ReceivedDate = r.ReceivedDate,
             CreatedDate = r.CreatedDate
         };
