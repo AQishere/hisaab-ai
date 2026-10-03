@@ -1,0 +1,52 @@
+# ---------------------------------------------------------------
+# Secrets and machine-specific config: never commit these.
+# Example versions (*.example.*) ARE committed; copy them to set up.
+# ---------------------------------------------------------------
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
+**/secrets.json
+.env
+.env.*
+!.env.example
+*.local
+*.local.ts
+*.pfx
+*.pem
+*.key
+
+# ---------------------------------------------------------------
+# .NET build output and IDE files
+# ---------------------------------------------------------------
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.rsuser
+TestResults/
+
+# ---------------------------------------------------------------
+# Node / Vite
+# ---------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
