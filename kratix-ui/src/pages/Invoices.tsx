@@ -41,6 +41,8 @@ const Invoices: React.FC = () => {
 
   const order = invoiceable.find((o) => String(o.salesOrderID) === form.salesOrderID);
   const tax = Number(form.taxAmount) || 0;
+  // Empty means the default 15 days; 0 is valid (due on the invoice date).
+  const dueDays = form.dueDays.trim() === '' ? 15 : Number(form.dueDays);
   // Invoices bill the dispatched quantity, which is less than the order total when an order was closed short.
   const subtotal = order?.lineItems.reduce((sum, l) => sum + Math.round(l.dispatchedQuantity * l.ratePerUnit * 100) / 100, 0) ?? 0;
 
@@ -52,7 +54,7 @@ const Invoices: React.FC = () => {
         salesOrderID: Number(form.salesOrderID),
         invoiceDate: form.invoiceDate,
         taxAmount: tax,
-        dueDays: Number(form.dueDays) || 15,
+        dueDays,
       });
       toast(`${res.data.invoiceNumber} created for ${formatMoney(res.data.netAmount)}`);
       setCreateOpen(false);
@@ -127,7 +129,7 @@ const Invoices: React.FC = () => {
         title="New invoice"
         submitLabel="Create invoice"
         submitting={saving}
-        submitDisabled={!order || !form.invoiceDate || tax < 0}
+        submitDisabled={!order || !form.invoiceDate || tax < 0 || !Number.isInteger(dueDays) || dueDays < 0}
         error={formError}
         onClose={() => setCreateOpen(false)}
         onSubmit={create}
@@ -167,7 +169,7 @@ const Invoices: React.FC = () => {
             label="Due in (days)"
             value={form.dueDays}
             onChange={(e) => setForm({ ...form, dueDays: e.target.value })}
-            slotProps={{ htmlInput: { min: 1, step: 1 } }}
+            slotProps={{ htmlInput: { min: 0, step: 1 } }}
           />
         </Box>
         {order && (
@@ -177,7 +179,7 @@ const Invoices: React.FC = () => {
                 ['Subtotal', formatMoney(subtotal)],
                 ['Tax', formatMoney(tax)],
                 ['Net amount', <strong key="n">{formatMoney(subtotal + tax)}</strong>],
-                ['Due date', formatDate(addDays(form.invoiceDate, Number(form.dueDays) || 15))],
+                ['Due date', formatDate(addDays(form.invoiceDate, dueDays))],
               ]}
             />
           </Box>

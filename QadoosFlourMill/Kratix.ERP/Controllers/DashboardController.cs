@@ -58,7 +58,7 @@ public class DashboardController : ControllerBase
             // Get pending purchase orders
             var pendingPOs = await _context.PurchaseOrders
                 .AsNoTracking()
-                .Where(p => p.Status != "Received" && p.Status != "Cancelled")
+                .Where(p => p.Status == "Draft" || p.Status == "Sent")
                 .CountAsync();
 
             // Get sales today
