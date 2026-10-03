@@ -2,9 +2,13 @@ namespace Kratix.ERP.DTOs;
 
 public class InboundReceiptDTO
 {
+    public string ReceiptType { get; set; } = "Weighed";
+    public decimal? ReceivedQuantity { get; set; }
     public int ReceiptID { get; set; }
     public string ReceiptNumber { get; set; }
     public int POID { get; set; }
+    public int? POLineItemID { get; set; }
+    public string? ProductName { get; set; }
     public string PONumber { get; set; }
     public string TruckNumber { get; set; }
     public string DriverName { get; set; }
@@ -29,6 +33,7 @@ public class InboundReceiptDTO
 public class CreateGateEntryDTO
 {
     public int POID { get; set; }
+    public int POLineItemID { get; set; }
     public string TruckNumber { get; set; }
     public string DriverName { get; set; }
     public string DriverPhone { get; set; }
@@ -53,4 +58,16 @@ public class CreateGRNDTO
     public int WarehouseID { get; set; }
     public string BinCode { get; set; }
     public string LotNumber { get; set; }
+}
+
+public class CountReceiptDTO
+{
+    public int POID { get; set; }
+    public int POLineItemID { get; set; }
+    public decimal Quantity { get; set; }
+    public int WarehouseID { get; set; }
+    public string? BinCode { get; set; }
+    public string LotNumber { get; set; } = "";
+    public string TruckNumber { get; set; } = "";
+    public string DriverName { get; set; } = "";
 }

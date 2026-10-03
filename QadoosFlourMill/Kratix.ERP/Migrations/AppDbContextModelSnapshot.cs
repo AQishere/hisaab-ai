@@ -22,6 +22,16 @@ namespace Kratix.ERP.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.HasSequence("BatchNumbers");
+
+            modelBuilder.HasSequence("InvoiceNumbers");
+
+            modelBuilder.HasSequence("PurchaseOrderNumbers");
+
+            modelBuilder.HasSequence("ReceiptNumbers");
+
+            modelBuilder.HasSequence("SalesOrderNumbers");
+
             modelBuilder.Entity("Kratix.ERP.Models.BatchMaterial", b =>
                 {
                     b.Property<int>("BatchMaterialID")
@@ -45,9 +55,23 @@ namespace Kratix.ERP.Migrations
                     b.Property<bool>("IsQualityApproved")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsReversed")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("KgPerBag")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
                     b.Property<string>("MaterialType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("OutputInventoryID")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PackedQuantityKg")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
 
                     b.Property<int>("ProductID")
                         .HasColumnType("int");
@@ -55,6 +79,18 @@ namespace Kratix.ERP.Migrations
                     b.Property<decimal>("Quantity")
                         .HasPrecision(15, 3)
                         .HasColumnType("decimal(15,3)");
+
+                    b.Property<string>("ReversalReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ReversedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReversedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SourceInventoryID")
+                        .HasColumnType("int");
 
                     b.Property<string>("SourceLotNumber")
                         .HasColumnType("nvarchar(max)");
@@ -68,11 +104,18 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("BatchID");
 
+                    b.HasIndex("OutputInventoryID");
+
                     b.HasIndex("ProductID");
+
+                    b.HasIndex("SourceInventoryID");
 
                     b.HasIndex("SourceWarehouseID");
 
-                    b.ToTable("BatchMaterials");
+                    b.ToTable("BatchMaterials", t =>
+                        {
+                            t.HasCheckConstraint("CK_Material_Quantities", "[Quantity] > 0 AND [PackedQuantityKg] >= 0 AND [PackedQuantityKg] <= [Quantity] AND [MaterialType] IN ('Input','Output','Waste')");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Customer", b =>
@@ -118,6 +161,77 @@ namespace Kratix.ERP.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("Kratix.ERP.Models.Dispatch", b =>
+                {
+                    b.Property<int>("DispatchID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DispatchID"));
+
+                    b.Property<DateTime>("DispatchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DriverName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RecordedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SalesOrderID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TruckNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("DispatchID");
+
+                    b.HasIndex("SalesOrderID");
+
+                    b.ToTable("Dispatches");
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.DispatchLine", b =>
+                {
+                    b.Property<int>("DispatchLineID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DispatchLineID"));
+
+                    b.Property<int>("DispatchID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InventoryID")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<int>("SOLineItemID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("DispatchLineID");
+
+                    b.HasIndex("DispatchID");
+
+                    b.HasIndex("InventoryID");
+
+                    b.HasIndex("SOLineItemID");
+
+                    b.ToTable("DispatchLines", t =>
+                        {
+                            t.HasCheckConstraint("CK_DispatchLine_Quantity", "[Quantity] > 0");
+                        });
+                });
+
             modelBuilder.Entity("Kratix.ERP.Models.InboundReceipt", b =>
                 {
                     b.Property<int>("ReceiptID")
@@ -149,19 +263,24 @@ namespace Kratix.ERP.Migrations
                         .HasColumnType("decimal(15,3)");
 
                     b.Property<decimal?>("Impurities")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("LotNumber")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Moisture")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<decimal?>("NetWeight")
                         .HasPrecision(15, 3)
                         .HasColumnType("decimal(15,3)");
 
                     b.Property<int>("POID")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("POLineItemID")
                         .HasColumnType("int");
 
                     b.Property<string>("QCResult")
@@ -171,11 +290,22 @@ namespace Kratix.ERP.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("ReceiptType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("Weighed");
+
                     b.Property<int?>("ReceivedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ReceivedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("ReceivedQuantity")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -195,6 +325,8 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("POID");
 
+                    b.HasIndex("POLineItemID");
+
                     b.HasIndex("ReceiptNumber")
                         .IsUnique();
 
@@ -202,7 +334,10 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("WarehouseID");
 
-                    b.ToTable("InboundReceipts");
+                    b.ToTable("InboundReceipts", t =>
+                        {
+                            t.HasCheckConstraint("CK_Receipt_Status", "[Status] IN ('GateEntry','Weighed','QCApproved','Rejected','Received') AND [ReceiptType] IN ('Weighed','Counted') AND ([ReceivedQuantity] IS NULL OR [ReceivedQuantity] > 0)");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Inventory", b =>
@@ -214,13 +349,15 @@ namespace Kratix.ERP.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InventoryID"));
 
                     b.Property<string>("BinCode")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime>("LastUpdatedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("LotNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("ProductID")
                         .HasColumnType("int");
@@ -229,16 +366,30 @@ namespace Kratix.ERP.Migrations
                         .HasPrecision(15, 3)
                         .HasColumnType("decimal(15,3)");
 
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StockForm")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("Standard");
+
                     b.Property<int>("WarehouseID")
                         .HasColumnType("int");
 
                     b.HasKey("InventoryID");
 
-                    b.HasIndex("ProductID");
-
                     b.HasIndex("WarehouseID");
 
-                    b.ToTable("Inventories");
+                    b.HasIndex("ProductID", "WarehouseID", "StockForm", "BinCode", "LotNumber")
+                        .IsUnique();
+
+                    b.ToTable("Inventories", t =>
+                        {
+                            t.HasCheckConstraint("CK_Inventory_Quantity", "[QuantityAvailable] >= 0 AND [StockForm] IN ('Standard','Bulk')");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Invoice", b =>
@@ -295,9 +446,67 @@ namespace Kratix.ERP.Migrations
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
 
-                    b.HasIndex("SalesOrderID");
+                    b.HasIndex("SalesOrderID")
+                        .IsUnique();
 
-                    b.ToTable("Invoices");
+                    b.ToTable("Invoices", t =>
+                        {
+                            t.HasCheckConstraint("CK_Invoice_Amounts", "[TotalAmount] >= 0 AND [TaxAmount] >= 0 AND [NetAmount] = [TotalAmount] + [TaxAmount] AND [Status] IN ('Unpaid','PartiallyPaid','Paid')");
+                        });
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.InvoiceLine", b =>
+                {
+                    b.Property<int>("InvoiceLineID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceLineID"));
+
+                    b.Property<int>("InvoiceID")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsLegacySnapshot")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("KgPerBag")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProductID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<decimal>("RatePerUnit")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("decimal(15,2)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("InvoiceLineID");
+
+                    b.HasIndex("InvoiceID");
+
+                    b.HasIndex("ProductID");
+
+                    b.ToTable("InvoiceLines");
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.POLineItem", b =>
@@ -323,7 +532,8 @@ namespace Kratix.ERP.Migrations
                         .HasColumnType("decimal(15,2)");
 
                     b.Property<decimal>("ReceivedQuantity")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(15, 2)
@@ -335,7 +545,64 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("ProductID");
 
-                    b.ToTable("POLineItems");
+                    b.ToTable("POLineItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_POLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity]");
+                        });
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.PackingRun", b =>
+                {
+                    b.Property<int>("PackingRunID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PackingRunID"));
+
+                    b.Property<decimal>("BagsPacked")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<int>("BatchMaterialID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BulkInventoryID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FinishedInventoryID")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("KgPerBag")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<int>("PackagingInventoryID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PackedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("QuantityKg")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<int?>("RecordedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("PackingRunID");
+
+                    b.HasIndex("BatchMaterialID");
+
+                    b.HasIndex("BulkInventoryID");
+
+                    b.HasIndex("FinishedInventoryID");
+
+                    b.HasIndex("PackagingInventoryID");
+
+                    b.ToTable("PackingRuns", t =>
+                        {
+                            t.HasCheckConstraint("CK_Packing_Quantities", "[QuantityKg] > 0 AND [KgPerBag] > 0 AND [BagsPacked] > 0 AND [BagsPacked] = FLOOR([BagsPacked]) AND [QuantityKg] = [KgPerBag] * [BagsPacked]");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Payment", b =>
@@ -370,7 +637,10 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("InvoiceID");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", t =>
+                        {
+                            t.HasCheckConstraint("CK_Payment_Amount", "[PaymentAmount] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Product", b =>
@@ -389,6 +659,10 @@ namespace Kratix.ERP.Migrations
 
                     b.Property<string>("HSNCode")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("KgPerBag")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
 
                     b.Property<string>("ProductCode")
                         .IsRequired()
@@ -458,7 +732,10 @@ namespace Kratix.ERP.Migrations
                     b.HasIndex("BatchNumber")
                         .IsUnique();
 
-                    b.ToTable("ProductionBatches");
+                    b.ToTable("ProductionBatches", t =>
+                        {
+                            t.HasCheckConstraint("CK_Batch_Status", "[Status] IN ('Planned','InProgress','Completed') AND [TotalInputQuantity] >= 0 AND [TotalOutputQuantity] >= 0 AND [TotalWasteQuantity] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.PurchaseOrder", b =>
@@ -504,7 +781,10 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("SupplierID");
 
-                    b.ToTable("PurchaseOrders");
+                    b.ToTable("PurchaseOrders", t =>
+                        {
+                            t.HasCheckConstraint("CK_PO_Status", "[Status] IN ('Draft','Sent','Received','Cancelled')");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.SOLineItem", b =>
@@ -558,7 +838,10 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("SalesOrderID");
 
-                    b.ToTable("SOLineItems");
+                    b.ToTable("SOLineItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_SOLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [DispatchedQuantity] >= 0 AND [DispatchedQuantity] <= [Quantity] AND [DispatchStatus] IN ('NotDispatched','PartiallyDispatched','Dispatched')");
+                        });
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.SalesOrder", b =>
@@ -605,7 +888,56 @@ namespace Kratix.ERP.Migrations
                     b.HasIndex("SONumber")
                         .IsUnique();
 
-                    b.ToTable("SalesOrders");
+                    b.ToTable("SalesOrders", t =>
+                        {
+                            t.HasCheckConstraint("CK_SO_Status", "[Status] IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.StockMovement", b =>
+                {
+                    b.Property<int>("StockMovementID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("StockMovementID"));
+
+                    b.Property<int>("InventoryID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<decimal>("QuantityChange")
+                        .HasPrecision(15, 3)
+                        .HasColumnType("decimal(15,3)");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RecordedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("StockMovementID");
+
+                    b.HasIndex("InventoryID", "RecordedAt");
+
+                    b.ToTable("StockMovements");
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Supplier", b =>
@@ -699,6 +1031,11 @@ namespace Kratix.ERP.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Location")
                         .HasColumnType("nvarchar(max)");
 
@@ -716,32 +1053,84 @@ namespace Kratix.ERP.Migrations
                     b.HasOne("Kratix.ERP.Models.User", "ApprovedByUser")
                         .WithMany()
                         .HasForeignKey("ApprovedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.ProductionBatch", "ProductionBatch")
                         .WithMany("BatchMaterials")
                         .HasForeignKey("BatchID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Inventory", "OutputInventory")
+                        .WithMany()
+                        .HasForeignKey("OutputInventoryID")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.Product", "Product")
                         .WithMany("BatchMaterials")
                         .HasForeignKey("ProductID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Inventory", "SourceInventory")
+                        .WithMany()
+                        .HasForeignKey("SourceInventoryID")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.Warehouse", "SourceWarehouse")
                         .WithMany("BatchMaterials")
                         .HasForeignKey("SourceWarehouseID")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("ApprovedByUser");
+
+                    b.Navigation("OutputInventory");
 
                     b.Navigation("Product");
 
                     b.Navigation("ProductionBatch");
 
+                    b.Navigation("SourceInventory");
+
                     b.Navigation("SourceWarehouse");
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.Dispatch", b =>
+                {
+                    b.HasOne("Kratix.ERP.Models.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("SalesOrder");
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.DispatchLine", b =>
+                {
+                    b.HasOne("Kratix.ERP.Models.Dispatch", "Dispatch")
+                        .WithMany("Lines")
+                        .HasForeignKey("DispatchID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Inventory", "Inventory")
+                        .WithMany()
+                        .HasForeignKey("InventoryID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.SOLineItem", "SOLineItem")
+                        .WithMany()
+                        .HasForeignKey("SOLineItemID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Dispatch");
+
+                    b.Navigation("Inventory");
+
+                    b.Navigation("SOLineItem");
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.InboundReceipt", b =>
@@ -749,18 +1138,25 @@ namespace Kratix.ERP.Migrations
                     b.HasOne("Kratix.ERP.Models.PurchaseOrder", "PurchaseOrder")
                         .WithMany("InboundReceipts")
                         .HasForeignKey("POID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.POLineItem", "POLineItem")
+                        .WithMany()
+                        .HasForeignKey("POLineItemID")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.User", "ReceivedByUser")
                         .WithMany()
                         .HasForeignKey("ReceivedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.Warehouse", "Warehouse")
                         .WithMany("InboundReceipts")
                         .HasForeignKey("WarehouseID")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("POLineItem");
 
                     b.Navigation("PurchaseOrder");
 
@@ -774,13 +1170,13 @@ namespace Kratix.ERP.Migrations
                     b.HasOne("Kratix.ERP.Models.Product", "Product")
                         .WithMany("Inventories")
                         .HasForeignKey("ProductID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("Kratix.ERP.Models.Warehouse", "Warehouse")
                         .WithMany("Inventories")
                         .HasForeignKey("WarehouseID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Product");
@@ -807,18 +1203,37 @@ namespace Kratix.ERP.Migrations
                     b.Navigation("SalesOrder");
                 });
 
+            modelBuilder.Entity("Kratix.ERP.Models.InvoiceLine", b =>
+                {
+                    b.HasOne("Kratix.ERP.Models.Invoice", "Invoice")
+                        .WithMany("Lines")
+                        .HasForeignKey("InvoiceID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Kratix.ERP.Models.POLineItem", b =>
                 {
                     b.HasOne("Kratix.ERP.Models.PurchaseOrder", "PurchaseOrder")
                         .WithMany("POLineItems")
                         .HasForeignKey("POID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("Kratix.ERP.Models.Product", "Product")
                         .WithMany("POLineItems")
                         .HasForeignKey("ProductID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Product");
@@ -826,12 +1241,47 @@ namespace Kratix.ERP.Migrations
                     b.Navigation("PurchaseOrder");
                 });
 
+            modelBuilder.Entity("Kratix.ERP.Models.PackingRun", b =>
+                {
+                    b.HasOne("Kratix.ERP.Models.BatchMaterial", "BatchMaterial")
+                        .WithMany()
+                        .HasForeignKey("BatchMaterialID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Inventory", "BulkInventory")
+                        .WithMany()
+                        .HasForeignKey("BulkInventoryID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Inventory", "FinishedInventory")
+                        .WithMany()
+                        .HasForeignKey("FinishedInventoryID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Kratix.ERP.Models.Inventory", "PackagingInventory")
+                        .WithMany()
+                        .HasForeignKey("PackagingInventoryID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("BatchMaterial");
+
+                    b.Navigation("BulkInventory");
+
+                    b.Navigation("FinishedInventory");
+
+                    b.Navigation("PackagingInventory");
+                });
+
             modelBuilder.Entity("Kratix.ERP.Models.Payment", b =>
                 {
                     b.HasOne("Kratix.ERP.Models.Invoice", "Invoice")
                         .WithMany("Payments")
                         .HasForeignKey("InvoiceID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Invoice");
@@ -842,12 +1292,12 @@ namespace Kratix.ERP.Migrations
                     b.HasOne("Kratix.ERP.Models.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.Supplier", "Supplier")
                         .WithMany("PurchaseOrders")
                         .HasForeignKey("SupplierID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
@@ -860,13 +1310,13 @@ namespace Kratix.ERP.Migrations
                     b.HasOne("Kratix.ERP.Models.Product", "Product")
                         .WithMany("SOLineItems")
                         .HasForeignKey("ProductID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("Kratix.ERP.Models.SalesOrder", "SalesOrder")
                         .WithMany("SOLineItems")
                         .HasForeignKey("SalesOrderID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Product");
@@ -879,17 +1329,28 @@ namespace Kratix.ERP.Migrations
                     b.HasOne("Kratix.ERP.Models.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Kratix.ERP.Models.Customer", "Customer")
                         .WithMany("SalesOrders")
                         .HasForeignKey("CustomerID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("Kratix.ERP.Models.StockMovement", b =>
+                {
+                    b.HasOne("Kratix.ERP.Models.Inventory", "Inventory")
+                        .WithMany()
+                        .HasForeignKey("InventoryID")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Inventory");
                 });
 
             modelBuilder.Entity("Kratix.ERP.Models.Customer", b =>
@@ -899,8 +1360,15 @@ namespace Kratix.ERP.Migrations
                     b.Navigation("SalesOrders");
                 });
 
+            modelBuilder.Entity("Kratix.ERP.Models.Dispatch", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("Kratix.ERP.Models.Invoice", b =>
                 {
+                    b.Navigation("Lines");
+
                     b.Navigation("Payments");
                 });
 

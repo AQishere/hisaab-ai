@@ -54,6 +54,9 @@ public class PaymentsController : ControllerBase
         if (invoice == null)
             return BadRequest("Invoice not found");
 
+        if (!BusinessRules.Money(dto.PaymentAmount))
+            return BadRequest("Payment amount must be positive and have at most two decimal places");
+
         var totalPaid = invoice.Payments.Sum(p => p.PaymentAmount);
         if (totalPaid + dto.PaymentAmount > invoice.NetAmount)
             return BadRequest("Payment amount exceeds invoice amount");
@@ -80,9 +83,9 @@ public class PaymentsController : ControllerBase
             invoice.Status = "PartiallyPaid";
         }
 
-        invoice.Customer.OutstandingBalance -= dto.PaymentAmount;
 
         await context.SaveChangesAsync();
+        await BusinessRules.RecalculateCustomerBalance(context, invoice.CustomerID);
 
         var createdPayment = await context.Payments
             .Include(p => p.Invoice)

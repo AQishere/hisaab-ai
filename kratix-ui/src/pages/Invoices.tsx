@@ -225,6 +225,14 @@ const Invoices: React.FC = () => {
               { key: 'amt', label: 'Amount', align: 'right', render: (p) => formatMoney(p.paymentAmount) },
             ]}
           />
+          <SectionTitle>Invoice items</SectionTitle>
+          <DataTable rows={selected.lines} rowKey={(l) => l.invoiceLineID} emptyTitle="No item snapshots available" columns={[
+            { key: 'name', label: 'Product', render: l => l.productName },
+            { key: 'qty', label: 'Quantity', render: l => `${l.quantity} ${l.unit}` },
+            { key: 'rate', label: 'Rate', render: l => formatMoney(l.ratePerUnit) },
+            { key: 'amount', label: 'Amount', render: l => formatMoney(l.totalAmount) },
+            { key: 'legacy', label: 'Source', render: l => l.isLegacySnapshot ? 'Reconstructed from legacy order' : 'Recorded at invoicing' },
+          ]} />
         </DetailDialog>
       )}
 

@@ -10,6 +10,16 @@ public class BatchMaterial
     public int ProductID { get; set; }
     public string MaterialType { get; set; } = null!; // Input, Output, Waste
     public decimal Quantity { get; set; }
+    public decimal PackedQuantityKg { get; set; }
+    public int? SourceInventoryID { get; set; }
+    public Inventory? SourceInventory { get; set; }
+    public int? OutputInventoryID { get; set; }
+    public Inventory? OutputInventory { get; set; }
+    public decimal? KgPerBag { get; set; }
+    public bool IsReversed { get; set; }
+    public string? ReversalReason { get; set; }
+    public DateTime? ReversedAt { get; set; }
+    public int? ReversedBy { get; set; }
 
     // For inputs: which warehouse/lot was consumed
     public int? SourceWarehouseID { get; set; }

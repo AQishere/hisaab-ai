@@ -83,6 +83,8 @@ public class CustomersController : ControllerBase
         if (customer == null)
             return NotFound();
 
+        if (await context.SalesOrders.AnyAsync(o => o.CustomerID == id) || await context.Invoices.AnyAsync(i => i.CustomerID == id))
+            return BadRequest("This customer has transactions. Deactivate it instead of deleting it.");
         context.Customers.Remove(customer);
         await context.SaveChangesAsync();
         return NoContent();

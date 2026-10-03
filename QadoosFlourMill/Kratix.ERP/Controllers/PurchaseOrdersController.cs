@@ -51,8 +51,10 @@ public class PurchaseOrdersController : ControllerBase
     [Authorize(Policy = Policies.Purchasing)]
     public async Task<ActionResult<PurchaseOrderDTO>> Create(CreatePurchaseOrderDTO dto)
     {
+        if (dto.LineItems == null || dto.LineItems.Count == 0 || dto.LineItems.Any(i => !BusinessRules.Quantity(i.Quantity) || !BusinessRules.Money(i.RatePerUnit) || !BusinessRules.Money(BusinessRules.Amount(i.Quantity, i.RatePerUnit), true)))
+            return BadRequest("Add at least one line with positive quantities (up to 3 decimals) and rates (up to 2 decimals).");
         var supplier = await context.Suppliers.FindAsync(dto.SupplierID);
-        if (supplier == null)
+        if (supplier == null || !supplier.IsActive)
             return BadRequest("Supplier not found");
 
         var poNumber = await GeneratePONumber();
@@ -64,6 +66,7 @@ public class PurchaseOrdersController : ControllerBase
             PODate = dto.PODate,
             ExpectedDeliveryDate = dto.ExpectedDeliveryDate,
             Status = "Draft",
+            CreatedBy = StockLedger.UserId(User),
             CreatedDate = DateTime.Now
         };
 
@@ -73,12 +76,16 @@ public class PurchaseOrdersController : ControllerBase
             if (product == null)
                 return BadRequest($"Product {item.ProductID} not found");
 
+            if (!((product.Category == "Raw Material" && product.Unit == "kg") || (product.Category == "Packaging" && product.Unit == "piece")))
+                return BadRequest("Purchase raw materials in kg or packaging in pieces.");
+            if (product.Unit == "piece" && item.Quantity != decimal.Truncate(item.Quantity))
+                return BadRequest("Packaging quantities must be whole pieces.");
             var lineItem = new POLineItem
             {
                 ProductID = item.ProductID,
                 Quantity = item.Quantity,
                 RatePerUnit = item.RatePerUnit,
-                TotalAmount = item.Quantity * item.RatePerUnit,
+                TotalAmount = BusinessRules.Amount(item.Quantity, item.RatePerUnit),
                 ReceivedQuantity = 0
             };
 
@@ -105,6 +112,15 @@ public class PurchaseOrdersController : ControllerBase
         if (order == null)
             return NotFound();
 
+        var allowed = order.Status == dto.Status ||
+            (order.Status == "Draft" && (dto.Status == "Sent" || dto.Status == "Cancelled")) ||
+            (order.Status == "Sent" && dto.Status == "Cancelled");
+        if (!allowed || order.Status is "Received" or "Cancelled")
+            return BadRequest("Only draft orders can be sent; received and cancelled orders cannot be changed.");
+        if (dto.Status == "Sent" && !await context.POLineItems.AnyAsync(i => i.POID == id))
+            return BadRequest("Add order lines before sending the order.");
+        if (dto.Status == "Cancelled" && await context.InboundReceipts.AnyAsync(r => r.POID == id && r.Status != "Rejected"))
+            return BadRequest("This order has receipts and cannot be cancelled.");
         order.ExpectedDeliveryDate = dto.ExpectedDeliveryDate;
         order.Status = dto.Status;
 
@@ -120,17 +136,16 @@ public class PurchaseOrdersController : ControllerBase
         if (order == null)
             return NotFound();
 
+        if (order.Status != "Draft" || await context.InboundReceipts.AnyAsync(r => r.POID == id))
+            return BadRequest("Only unused draft orders can be deleted.");
+        var lines = await context.POLineItems.Where(i => i.POID == id).ToListAsync();
+        context.POLineItems.RemoveRange(lines);
         context.PurchaseOrders.Remove(order);
         await context.SaveChangesAsync();
         return NoContent();
     }
 
-    private async Task<string> GeneratePONumber()
-    {
-        var count = await context.PurchaseOrders.CountAsync();
-        var year = DateTime.Now.Year;
-        return $"PO-{year}-{count + 1:D3}";
-    }
+    private Task<string> GeneratePONumber() => BusinessRules.NextNumber(context, "PO");
 
     private PurchaseOrderDTO MapToDTO(PurchaseOrder po)
     {

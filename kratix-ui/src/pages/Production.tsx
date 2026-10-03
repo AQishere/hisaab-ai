@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
-import type { InventoryItem, Product, ProductionBatch, Warehouse } from '../api/types';
+import { quantityBalance, wholeBags } from '../utils/quantities';
+import { PackingHistory } from '../components/HistoryTables';
+import type { BatchMaterial, InventoryItem, Product, ProductionBatch, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { useToast } from '../context/ToastContext';
 import { formatDate, formatNumber, getErrorMessage, todayISO } from '../utils/format';
@@ -18,7 +20,7 @@ const yieldOf = (b: ProductionBatch) => (b.totalInputQuantity > 0 ? (b.totalOutp
 
 const Production: React.FC = () => {
   const batches = useFetch<ProductionBatch[]>('/productionbatches');
-  const inventory = useFetch<InventoryItem[]>('/inventory?inStockOnly=true');
+  const inventory = useFetch<InventoryItem[]>('/inventory');
   const products = useFetch<Product[]>('/products');
   const warehouses = useFetch<Warehouse[]>('/warehouses');
   const toast = useToast();
@@ -30,10 +32,19 @@ const Production: React.FC = () => {
   const [input, setInput] = useState({ inventoryID: '', quantity: '' });
   const [output, setOutput] = useState({ productID: '', quantity: '', materialType: 'Output' });
   const [finishWarehouse, setFinishWarehouse] = useState('');
+  const [packingOutput, setPackingOutput] = useState<BatchMaterial | null>(null);
+  const [packQuantityKg, setPackQuantityKg] = useState('');
+  const [packWarehouse, setPackWarehouse] = useState('');
+  const [packagingInventory, setPackagingInventory] = useState('');
+  const [reversing, setReversing] = useState<BatchMaterial | null>(null);
+  const [reversalReason, setReversalReason] = useState('');
+  const [reversalInventory, setReversalInventory] = useState('');
+  const packagingLots = inventory.data?.filter(i => i.category === 'Packaging' && i.unit === 'piece' && i.quantityAvailable > 0) ?? [];
+  const needsLocation = !!packingOutput && !packingOutput.outputInventoryID;
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const rawLots = inventory.data?.filter((i) => i.category === 'Raw Material') ?? [];
+  const rawLots = inventory.data?.filter((i) => i.category === 'Raw Material' && i.quantityAvailable > 0) ?? [];
   const chosenLot = rawLots.find((l) => String(l.inventoryID) === input.inventoryID);
   const outputProducts = products.data?.filter((p) => p.category !== 'Raw Material' && p.category !== 'Packaging') ?? [];
 
@@ -53,6 +64,7 @@ const Production: React.FC = () => {
       inventory.reload();
     } catch (err) {
       setFormError(getErrorMessage(err));
+      toast(getErrorMessage(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -84,6 +96,7 @@ const Production: React.FC = () => {
       return run(
         () =>
           client.post(`/productionbatches/${id}/add-input`, {
+            inventoryID: chosenLot.inventoryID,
             productID: chosenLot.productID,
             quantity: Number(input.quantity),
             sourceLotNumber: chosenLot.lotNumber,
@@ -115,7 +128,9 @@ const Production: React.FC = () => {
       ? !!chosenLot && Number(input.quantity) > 0 && Number(input.quantity) <= chosenLot.quantityAvailable
       : action === 'output'
         ? !!output.productID && Number(output.quantity) > 0
-        : !!finishWarehouse;
+        : !!finishWarehouse && !!selected && selected.totalOutputQuantity > 0 &&
+          quantityBalance(selected.totalInputQuantity, selected.totalOutputQuantity, selected.totalWasteQuantity) === 0 &&
+          selected.materials.every((m) => m.isReversed || m.materialType !== 'Output' || m.isQualityApproved);
 
   const newButton = (
     <Button
@@ -131,7 +146,7 @@ const Production: React.FC = () => {
     </Button>
   );
 
-  const balance = selected ? selected.totalInputQuantity - selected.totalOutputQuantity - selected.totalWasteQuantity : 0;
+  const balance = selected ? quantityBalance(selected.totalInputQuantity, selected.totalOutputQuantity, selected.totalWasteQuantity) : 0;
 
   return (
     <Box>
@@ -194,7 +209,7 @@ const Production: React.FC = () => {
         <TextField label="Operator name" value={draft.operatorName} onChange={(e) => setDraft({ ...draft, operatorName: e.target.value })} />
       </FormDialog>
 
-      {selected && !action && (
+      {selected && !action && !packingOutput && !reversing && (
         <DetailDialog
           open
           maxWidth="lg"
@@ -211,7 +226,10 @@ const Production: React.FC = () => {
                 <Button onClick={() => openAction('output')} disabled={selected.totalInputQuantity === 0}>
                   Record output
                 </Button>
-                <Button variant="contained" onClick={() => openAction('complete')} disabled={selected.totalInputQuantity === 0}>
+                <Button variant="contained" onClick={() => openAction('complete')} disabled={
+                  selected.totalInputQuantity === 0 || selected.totalOutputQuantity === 0 || balance !== 0 ||
+                  selected.materials.some((m) => !m.isReversed && m.materialType === 'Output' && !m.isQualityApproved)
+                }>
                   Complete batch
                 </Button>
               </>
@@ -234,7 +252,7 @@ const Production: React.FC = () => {
               yield {selected.status === 'Completed' ? '' : '(so far)'}
             </Typography>
           </Box>
-          {selected.totalInputQuantity > 0 && Math.abs(balance) > 0.001 && selected.totalOutputQuantity + selected.totalWasteQuantity > 0 && (
+          {selected.totalInputQuantity > 0 && balance !== 0 && selected.totalOutputQuantity + selected.totalWasteQuantity > 0 && (
             <Alert severity={balance < 0 ? 'error' : 'info'}>
               {balance > 0
                 ? `${formatNumber(balance)} kg of input is not yet accounted for as output or waste.`
@@ -248,12 +266,43 @@ const Production: React.FC = () => {
             emptyTitle="Nothing recorded yet"
             emptyHint="Start by adding the wheat lots this batch will mill."
             columns={[
-              { key: 'type', label: 'Type', render: (m) => m.materialType },
+              { key: 'type', label: 'Type', render: (m) => m.isReversed ? `${m.materialType} (reversed: ${m.reversalReason})` : m.materialType },
               { key: 'p', label: 'Product', render: (m) => m.productName },
               { key: 'lot', label: 'Source lot', render: (m) => m.sourceLotNumber || '-' },
               { key: 'q', label: 'Quantity', align: 'right', render: (m) => `${formatNumber(m.quantity)} kg` },
+              {
+                key: 'approval', label: 'Quality', render: (m) => m.materialType === 'Output'
+                  ? m.isQualityApproved ? 'Approved' : 'Pending approval'
+                  : '-',
+              },
+              {
+                key: 'approve', label: '', align: 'right', render: (m) =>
+                  selected.status !== 'Completed' && !m.isReversed && m.materialType === 'Output' && !m.isQualityApproved ? (
+                    <Button size="small" disabled={saving} onClick={() => run(
+                      () => client.put(`/productionbatches/${selected.batchID}/approve-output/${m.batchMaterialID}`),
+                      `${m.productName} approved`,
+                      () => refreshSelected(selected.batchID),
+                    )}>Approve</Button>
+                  ) : selected.status === 'Completed' && !m.isReversed && m.materialType === 'Output' &&
+                    products.data?.find((p) => p.productID === m.productID)?.unit === 'bag' &&
+                    m.packedQuantityKg < m.quantity ? (
+                    <Button size="small" onClick={() => {
+                      setPackingOutput(m);
+                      setPackQuantityKg(String(m.quantity - m.packedQuantityKg));
+                      setPackWarehouse('');
+                      setPackagingInventory('');
+                      setFormError('');
+                    }}>{m.outputInventoryID ? 'Pack bags' : 'Locate bulk'}</Button>
+                  ) : null,
+              },
+              { key: 'reverse', label: '', render: m => selected.status !== 'Completed' && !m.isReversed ?
+                <Button color="warning" size="small" onClick={() => { setReversing(m); setReversalReason(''); setReversalInventory(''); setFormError(''); }}>Reverse entry</Button> : null },
+              { key: 'packed', label: 'Packed', align: 'right', render: (m) => m.materialType === 'Output' &&
+                products.data?.find((p) => p.productID === m.productID)?.unit === 'bag'
+                ? `${formatNumber(m.packedQuantityKg)} / ${formatNumber(m.quantity)} kg` : '-' },
             ]}
           />
+          <PackingHistory batchID={selected.batchID} />
         </DetailDialog>
       )}
 
@@ -338,7 +387,7 @@ const Production: React.FC = () => {
               Final yield will be {formatNumber(yieldOf(selected), 1)}%. Outputs are added to stock under lot {selected.batchNumber}. After this the batch cannot be changed.
             </Typography>
             <TextField select required label="Finished goods warehouse" value={finishWarehouse} onChange={(e) => setFinishWarehouse(e.target.value)}>
-              {warehouses.data?.map((w) => (
+              {warehouses.data?.filter(w => w.isActive).map((w) => (
                 <MenuItem key={w.warehouseID} value={String(w.warehouseID)}>
                   {w.warehouseName}
                 </MenuItem>
@@ -346,6 +395,58 @@ const Production: React.FC = () => {
             </TextField>
           </>
         )}
+      </FormDialog>
+
+      <FormDialog
+        open={!!packingOutput}
+        title={packingOutput ? `${needsLocation ? 'Locate bulk for' : 'Pack'} ${packingOutput.productName}` : ''}
+        submitLabel={needsLocation ? "Record bulk location" : "Add bags to stock"}
+        submitting={saving}
+        submitDisabled={!packingOutput || !packWarehouse || (!needsLocation && (!packagingInventory || !wholeBags(Number(packQuantityKg), packingOutput.kgPerBag ?? 0) || Number(packQuantityKg) > packingOutput.quantity - packingOutput.packedQuantityKg))}
+        error={formError}
+        onClose={() => setPackingOutput(null)}
+        onSubmit={() => {
+          if (!selected || !packingOutput) return;
+          const batchID = selected.batchID;
+          const materialID = packingOutput.batchMaterialID;
+          run(
+            () => needsLocation
+              ? client.post(`/productionbatches/${batchID}/locate-output/${materialID}`, { warehouseID: Number(packWarehouse) })
+              : client.post(`/productionbatches/${batchID}/pack-output/${materialID}`, {
+                quantityKg: Number(packQuantityKg), warehouseID: Number(packWarehouse), packagingInventoryID: Number(packagingInventory),
+              }),
+            needsLocation ? 'Bulk location recorded' : `${formatNumber(Number(packQuantityKg))} kg packed into bags`,
+            async () => { setPackingOutput(null); await refreshSelected(batchID); },
+          );
+        }}
+      >
+
+        {needsLocation ? <Alert severity="info">Choose where this unpacked output is physically stored. Its original warehouse was not recorded.</Alert> :
+          <TextField select required label="Empty bag lot" value={packagingInventory} onChange={e => setPackagingInventory(e.target.value)} helperText="Receive packaging in pieces first. Each packed bag consumes one empty bag.">
+            {packagingLots.map(i => <MenuItem key={i.inventoryID} value={String(i.inventoryID)}>{i.productName}: {i.lotNumber}, {formatNumber(i.quantityAvailable)} pieces in {i.warehouseName}</MenuItem>)}
+          </TextField>}
+        <Typography sx={{ fontSize: '14px', color: 'text.secondary' }}>
+          {packingOutput && `${formatNumber(packingOutput.quantity - packingOutput.packedQuantityKg)} kg remains unpacked. Bag size: ${packingOutput.kgPerBag ?? '?'} kg.`}
+        </Typography>
+        <TextField required disabled={needsLocation} type="number" label="Kilograms to pack" value={packQuantityKg}
+          onChange={(e) => setPackQuantityKg(e.target.value)} slotProps={{ htmlInput: { min: 0, step: 'any' } }} />
+        <TextField select required label={needsLocation ? "Bulk warehouse" : "Finished goods warehouse"} value={packWarehouse}
+          onChange={(e) => setPackWarehouse(e.target.value)}>
+          {warehouses.data?.filter(w => w.isActive).map((w) => <MenuItem key={w.warehouseID} value={String(w.warehouseID)}>{w.warehouseName}</MenuItem>)}
+        </TextField>
+      </FormDialog>
+      <FormDialog open={!!reversing} title="Reverse production entry" submitLabel="Reverse entry" submitting={saving} error={formError}
+        submitDisabled={!reversalReason.trim() || !!(reversing?.materialType === 'Input' && !reversing.sourceInventoryID && !reversalInventory)}
+        onClose={() => setReversing(null)} onSubmit={() => {
+          if (!selected || !reversing) return;
+          run(() => client.post(`/productionbatches/${selected.batchID}/reverse-material/${reversing.batchMaterialID}`, { reason: reversalReason.trim(), inventoryID: reversalInventory ? Number(reversalInventory) : null }),
+            'Entry reversed; record the corrected quantity if needed', async () => { setReversing(null); await refreshSelected(selected.batchID); });
+        }}>
+        <Typography>Input reversals restore the consumed stock. The original entry and your reason remain in the batch history.</Typography>
+        <TextField required label="Reason for correction" value={reversalReason} onChange={e => setReversalReason(e.target.value)} />
+        {reversing?.materialType === 'Input' && !reversing.sourceInventoryID && <TextField select required label="Original stock lot" value={reversalInventory} onChange={e => setReversalInventory(e.target.value)}>
+          {inventory.data?.filter(i => i.productID === reversing.productID && i.warehouseID === reversing.sourceWarehouseID && i.lotNumber === reversing.sourceLotNumber).map(i => <MenuItem key={i.inventoryID} value={String(i.inventoryID)}>{i.warehouseName} / {i.lotNumber} / {i.binCode || 'No bin'}</MenuItem>)}
+        </TextField>}
       </FormDialog>
     </Box>
   );

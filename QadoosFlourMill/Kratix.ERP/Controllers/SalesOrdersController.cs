@@ -50,8 +50,10 @@ public class SalesOrdersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SalesOrderDTO>> Create(CreateSalesOrderDTO dto)
     {
+        if (dto.LineItems == null || dto.LineItems.Count == 0 || dto.LineItems.Any(i => !BusinessRules.Quantity(i.Quantity) || !BusinessRules.Money(i.RatePerUnit) || !BusinessRules.Money(BusinessRules.Amount(i.Quantity, i.RatePerUnit), true)))
+            return BadRequest("Add at least one line with positive quantities (up to 3 decimals) and rates (up to 2 decimals).");
         var customer = await context.Customers.FindAsync(dto.CustomerID);
-        if (customer == null)
+        if (customer == null || !customer.IsActive)
             return BadRequest("Customer not found");
 
         var soNumber = await GenerateSONumber();
@@ -63,6 +65,7 @@ public class SalesOrdersController : ControllerBase
             SODate = dto.SODate,
             ExpectedDeliveryDate = dto.ExpectedDeliveryDate,
             Status = "Quotation",
+            CreatedBy = StockLedger.UserId(User),
             CreatedDate = DateTime.Now
         };
 
@@ -73,12 +76,16 @@ public class SalesOrdersController : ControllerBase
             if (product == null)
                 return BadRequest($"Product {item.ProductID} not found");
 
+            if (product.Category != "Finished Good" && product.Category != "By-product")
+                return BadRequest("Only finished goods and by-products can be sold.");
+            if (product.Unit == "bag" && item.Quantity != decimal.Truncate(item.Quantity))
+                return BadRequest("Order a whole number of bags.");
             var lineItem = new SOLineItem
             {
                 ProductID = item.ProductID,
                 Quantity = item.Quantity,
                 RatePerUnit = item.RatePerUnit,
-                TotalAmount = item.Quantity * item.RatePerUnit,
+                TotalAmount = BusinessRules.Amount(item.Quantity, item.RatePerUnit),
                 DispatchedQuantity = 0,
                 DispatchStatus = "NotDispatched"
             };
@@ -87,6 +94,7 @@ public class SalesOrdersController : ControllerBase
             totalAmount += lineItem.TotalAmount;
         }
 
+        if (!BusinessRules.Money(totalAmount, true)) return BadRequest("Order total is too large.");
         order.TotalAmount = totalAmount;
         context.SalesOrders.Add(order);
         await context.SaveChangesAsync();
@@ -113,11 +121,37 @@ public class SalesOrdersController : ControllerBase
         if (lineItem == null)
             return NotFound();
 
-        if (dto.DispatchedQuantity <= 0)
+        if (!BusinessRules.Quantity(dto.DispatchedQuantity))
             return BadRequest("Dispatch quantity must be greater than zero");
 
         if (dto.DispatchedQuantity > lineItem.Quantity - lineItem.DispatchedQuantity)
             return BadRequest("Cannot dispatch more than ordered quantity");
+
+        if (order.Status is "Cancelled" or "Dispatched") return BadRequest("This order cannot be dispatched.");
+        if (string.IsNullOrWhiteSpace(dto.TruckNumber) || string.IsNullOrWhiteSpace(dto.DriverName)) return BadRequest("Truck and driver are required.");
+        var product = await context.Products.FindAsync(lineItem.ProductID);
+        if (product!.Unit == "bag" && dto.DispatchedQuantity != decimal.Truncate(dto.DispatchedQuantity)) return BadRequest("Dispatch a whole number of bags.");
+        var stockLots = await context.Inventories
+            .Where(inv => inv.ProductID == lineItem.ProductID && inv.StockForm == "Standard" && inv.QuantityAvailable > 0)
+            .OrderBy(inv => inv.ReceivedAt)
+            .ThenBy(inv => inv.InventoryID)
+            .ToListAsync();
+        if (stockLots.Sum(inv => inv.QuantityAvailable) < dto.DispatchedQuantity)
+            return BadRequest("Insufficient finished-goods stock to dispatch this quantity");
+
+        var dispatch = new Dispatch { SalesOrderID = id, TruckNumber = dto.TruckNumber.Trim(), DriverName = dto.DriverName.Trim(), RecordedBy = StockLedger.UserId(User) };
+        context.Dispatches.Add(dispatch);
+        await context.SaveChangesAsync();
+        var remainingToDispatch = dto.DispatchedQuantity;
+        foreach (var stockLot in stockLots)
+        {
+            var used = Math.Min(stockLot.QuantityAvailable, remainingToDispatch);
+            StockLedger.Change(context, stockLot, -used, product.Unit, "Dispatch", $"DISP-{dispatch.DispatchID}", User);
+            dispatch.Lines.Add(new DispatchLine { SOLineItemID = lineItemId, Inventory = stockLot, Quantity = used, Unit = product.Unit });
+            remainingToDispatch -= used;
+            if (remainingToDispatch == 0)
+                break;
+        }
 
         lineItem.DispatchedQuantity += dto.DispatchedQuantity;
         lineItem.TruckNumber = dto.TruckNumber;
@@ -139,12 +173,13 @@ public class SalesOrdersController : ControllerBase
         return NoContent();
     }
 
-    private async Task<string> GenerateSONumber()
-    {
-        var count = await context.SalesOrders.CountAsync();
-        var year = DateTime.Now.Year;
-        return $"SO-{year}-{count + 1:D3}";
-    }
+    [HttpGet("{id}/dispatches")]
+    public async Task<ActionResult> DispatchHistory(int id) => Ok(await context.Dispatches.Where(d => d.SalesOrderID == id)
+        .OrderByDescending(d => d.DispatchedAt).Select(d => new { d.DispatchID, d.TruckNumber, d.DriverName, d.DispatchedAt,
+            Lines = d.Lines.Select(l => new { l.DispatchLineID, l.SOLineItemID, l.Quantity, l.Unit,
+                ProductName = l.Inventory.Product!.ProductName, l.Inventory.LotNumber, Warehouse = l.Inventory.Warehouse!.WarehouseName }) }).ToListAsync());
+
+    private Task<string> GenerateSONumber() => BusinessRules.NextNumber(context, "SO");
 
     private SalesOrderDTO MapToDTO(SalesOrder so)
     {

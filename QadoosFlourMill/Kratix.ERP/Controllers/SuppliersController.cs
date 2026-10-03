@@ -82,6 +82,8 @@ public class SuppliersController : ControllerBase
         if (supplier == null)
             return NotFound();
 
+        if (await context.PurchaseOrders.AnyAsync(o => o.SupplierID == id))
+            return BadRequest("This supplier has purchase orders. Deactivate it instead of deleting it.");
         context.Suppliers.Remove(supplier);
         await context.SaveChangesAsync();
         return NoContent();

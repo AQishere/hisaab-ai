@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Box, Button, MenuItem, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
+import PackagingReceiptButton from '../components/PackagingReceiptButton';
 import type { InboundReceipt, PurchaseOrder, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { useToast } from '../context/ToastContext';
@@ -39,7 +40,7 @@ const InboundReceipts: React.FC = () => {
   const toast = useToast();
 
   const [gateOpen, setGateOpen] = useState(false);
-  const [gate, setGate] = useState({ poid: '', truckNumber: '', driverName: '', driverPhone: '' });
+  const [gate, setGate] = useState({ poid: '', poLineItemID: '', truckNumber: '', driverName: '', driverPhone: '' });
   const [stepFor, setStepFor] = useState<{ receipt: InboundReceipt; kind: StepKind } | null>(null);
   const [weigh, setWeigh] = useState({ grossWeight: '', tareWeight: '' });
   const [qc, setQc] = useState({ moisture: '', impurities: '', grainType: '', qcResult: 'Approved' });
@@ -49,6 +50,7 @@ const InboundReceipts: React.FC = () => {
   const [viewing, setViewing] = useState<InboundReceipt | null>(null);
 
   const openPOs = orders.data?.filter((o) => o.status === 'Sent') ?? [];
+  const gatePO = openPOs.find((o) => String(o.poid) === gate.poid);
   const net = (Number(weigh.grossWeight) || 0) - (Number(weigh.tareWeight) || 0);
 
   const openStep = (receipt: InboundReceipt, kind: StepKind) => {
@@ -78,7 +80,7 @@ const InboundReceipts: React.FC = () => {
 
   const createGate = () =>
     submit(
-      () => client.post('/inboundreceipts/gate-entry', { ...gate, poid: Number(gate.poid) }),
+      () => client.post('/inboundreceipts/gate-entry', { ...gate, poid: Number(gate.poid), poLineItemID: Number(gate.poLineItemID) }),
       `Truck ${gate.truckNumber} checked in`,
       () => setGateOpen(false),
     );
@@ -125,7 +127,7 @@ const InboundReceipts: React.FC = () => {
       variant="contained"
       startIcon={<AddIcon />}
       onClick={() => {
-        setGate({ poid: '', truckNumber: '', driverName: '', driverPhone: '' });
+        setGate({ poid: '', poLineItemID: '', truckNumber: '', driverName: '', driverPhone: '' });
         setFormError('');
         setGateOpen(true);
       }}
@@ -136,7 +138,7 @@ const InboundReceipts: React.FC = () => {
 
   return (
     <Box>
-      <PageHeader title="Inbound Receipts" subtitle="Trucks arriving with wheat: gate, weighbridge, quality check, then stock" actions={newButton} />
+      <PageHeader title="Inbound Receipts" subtitle="Receive weighed wheat loads or count packaging supplies into stock" actions={<Box sx={{ display: 'flex', gap: 1 }}><PackagingReceiptButton onReceived={() => { receipts.reload(); orders.reload(); }} />{newButton}</Box>} />
 
       <DataTable
         rows={receipts.data}
@@ -153,7 +155,7 @@ const InboundReceipts: React.FC = () => {
           { key: 'po', label: 'PO', render: (r) => r.poNumber },
           { key: 'truck', label: 'Truck', render: (r) => r.truckNumber },
           { key: 'arrived', label: 'Arrived', render: (r) => formatDateTime(r.arrivalDateTime) },
-          { key: 'net', label: 'Net weight', align: 'right', render: (r) => (r.netWeight != null ? `${formatNumber(r.netWeight)} kg` : '-') },
+          { key: 'net', label: 'Quantity', align: 'right', render: (r) => r.receiptType === 'Counted' ? `${formatNumber(r.receivedQuantity)} pieces` : (r.netWeight != null ? `${formatNumber(r.netWeight)} kg` : '-') },
           { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
           {
             key: 'next',
@@ -184,7 +186,7 @@ const InboundReceipts: React.FC = () => {
         title="New gate entry"
         submitLabel="Check truck in"
         submitting={saving}
-        submitDisabled={!gate.poid || !gate.truckNumber.trim() || !gate.driverName.trim()}
+        submitDisabled={!gate.poid || !gate.poLineItemID || !gate.truckNumber.trim() || !gate.driverName.trim()}
         error={formError}
         onClose={() => setGateOpen(false)}
         onSubmit={createGate}
@@ -194,12 +196,26 @@ const InboundReceipts: React.FC = () => {
           required
           label="Purchase order"
           value={gate.poid}
-          onChange={(e) => setGate({ ...gate, poid: e.target.value })}
+          onChange={(e) => setGate({ ...gate, poid: e.target.value, poLineItemID: '' })}
           helperText={openPOs.length === 0 ? 'No purchase orders are marked as sent. A PO must be sent before its truck can arrive.' : undefined}
         >
           {openPOs.map((o) => (
             <MenuItem key={o.poid} value={String(o.poid)}>
               {o.poNumber} : {o.supplierName} ({o.lineItems.map((l) => `${formatNumber(l.quantity)} ${l.unit} ${l.productName}`).join(', ')})
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          required
+          label="Product on purchase order"
+          value={gate.poLineItemID}
+          onChange={(e) => setGate({ ...gate, poLineItemID: e.target.value })}
+          helperText="Create one receipt per PO line so its measured weight is assigned to the correct product."
+        >
+          {gatePO?.lineItems.filter((l) => l.unit === 'kg' && l.receivedQuantity < l.quantity).map((l) => (
+            <MenuItem key={l.lineItemID} value={String(l.lineItemID)}>
+              {l.productName}: {formatNumber(l.quantity - l.receivedQuantity)} kg remaining
             </MenuItem>
           ))}
         </TextField>
@@ -293,7 +309,7 @@ const InboundReceipts: React.FC = () => {
               onChange={(e) => setGrn({ ...grn, warehouseID: e.target.value })}
               helperText={warehouses.data?.length === 0 ? 'No warehouses yet. Add one on the Warehouses page.' : undefined}
             >
-              {warehouses.data?.map((w) => (
+              {warehouses.data?.filter(w => w.isActive).map((w) => (
                 <MenuItem key={w.warehouseID} value={String(w.warehouseID)}>
                   {w.warehouseName}
                 </MenuItem>
@@ -324,11 +340,12 @@ const InboundReceipts: React.FC = () => {
             )
           }
         >
-          <ReceiptStepper status={viewing.status} />
+          {viewing.receiptType === 'Weighed' ? <ReceiptStepper status={viewing.status} /> : <Alert severity="info">Counted packaging receipt: {formatNumber(viewing.receivedQuantity)} pieces</Alert>}
           <SectionTitle>Truck</SectionTitle>
           <InfoGrid
             items={[
               ['Purchase order', viewing.poNumber],
+              ['Product', viewing.productName || '-'],
               ['Truck', viewing.truckNumber],
               ['Driver', `${viewing.driverName}${viewing.driverPhone ? ` (${viewing.driverPhone})` : ''}`],
               ['Arrived', formatDateTime(viewing.arrivalDateTime)],

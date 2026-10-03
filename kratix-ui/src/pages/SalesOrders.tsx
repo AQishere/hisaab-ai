@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
+import { DispatchHistory } from '../components/HistoryTables';
 import type { Customer, Product, SalesOrder, SOLineItem } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { useToast } from '../context/ToastContext';
@@ -229,6 +230,7 @@ const SalesOrders: React.FC = () => {
           {selected.status === 'Dispatched' && (
             <Alert severity="success">Fully dispatched. You can now create the invoice on the Invoices page.</Alert>
           )}
+          <DispatchHistory orderID={selected.salesOrderID} />
         </DetailDialog>
       )}
 

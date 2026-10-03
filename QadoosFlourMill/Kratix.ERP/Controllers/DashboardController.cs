@@ -33,25 +33,26 @@ public class DashboardController : ControllerBase
             // Get flour stock (finished goods)
             var flourStock = await _context.Inventories
                 .AsNoTracking()
-                .Where(i => i.Product!.Category == "Finished Good")
+                .Where(i => i.StockForm == "Standard" && i.Product!.Category == "Finished Good" && i.Product.Unit == "bag")
                 .SumAsync(i => (decimal?)i.QuantityAvailable) ?? 0;
 
-            // Get today's milling (production batches from today)
+            // Milling is wheat consumed by completed batches, measured in kg.
             var todayMilling = await _context.ProductionBatches
                 .AsNoTracking()
-                .Where(b => b.ProductionDate.Date == DateTime.Today)
-                .SumAsync(b => (decimal?)b.TotalOutputQuantity) ?? 0;
+                .Where(b => b.ProductionDate.Date == DateTime.Today && b.Status == "Completed")
+                .SumAsync(b => (decimal?)b.TotalInputQuantity) ?? 0;
 
             // Get today's yield (average yield from today's batches)
             var todayYield = 0m;
             var todayBatches = await _context.ProductionBatches
                 .AsNoTracking()
-                .Where(b => b.ProductionDate.Date == DateTime.Today)
+                .Where(b => b.ProductionDate.Date == DateTime.Today && b.Status == "Completed")
                 .ToListAsync();
 
-            if (todayBatches.Count > 0)
+            var totalInput = todayBatches.Sum(b => b.TotalInputQuantity);
+            if (totalInput > 0)
             {
-                todayYield = todayBatches.Average(b => b.YieldPercentage);
+                todayYield = todayBatches.Sum(b => b.TotalOutputQuantity) / totalInput * 100;
             }
 
             // Get pending purchase orders

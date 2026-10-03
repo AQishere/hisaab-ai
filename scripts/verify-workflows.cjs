@@ -1,0 +1,142 @@
+// Run ONLY against the isolated review server/database, never the working demo.
+// ERP_TEST_BASE_URL=http://localhost:5071 ERP_TEST_DATABASE=KratixReview_... node scripts/verify-workflows.cjs
+const fs = require('fs');
+const assert = require('node:assert/strict');
+const base = process.env.ERP_TEST_BASE_URL;
+if (base !== 'http://localhost:5071' || !process.env.ERP_TEST_DATABASE?.startsWith('KratixReview_'))
+  throw Error('Start an isolated KratixReview_ database on localhost:5071 and set both test environment variables.');
+let token, checks = 0;
+const suffix = Date.now().toString(36);
+const date = new Date().toISOString().slice(0,10);
+async function request(path, method='GET', body, expected=200) {
+  const response = await fetch(base+'/api'+path, { method, headers: { 'Content-Type':'application/json', ...(token ? { Authorization: 'Bearer '+token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+  const raw = await response.text();
+  if (expected !== null) { assert.equal(response.status, expected, `${method} ${path}: ${raw.slice(0,500)}`); checks++; }
+  let value; try { value=JSON.parse(raw); } catch { value=raw; }
+  return expected === null ? { status:response.status, value } : value;
+}
+const post=(p,b,status=201)=>request(p,'POST',b,status);
+const put=(p,b,status=204)=>request(p,'PUT',b,status);
+const get=p=>request(p);
+function same(actual, expected, message) { assert.equal(actual, expected, message); checks++; }
+async function main() {
+  const cfg=JSON.parse(fs.readFileSync('QadoosFlourMill/Kratix.ERP/appsettings.Development.json','utf8'));
+  const owner=cfg.DemoUsers.find(u=>u.Role==='Owner');
+  token=(await post('/auth/login',{username:owner.Username,password:owner.Password},200)).token;
+  const wh=await post('/warehouses',{warehouseName:'Review '+suffix,location:'Test only',capacity:100000});
+  const supplier=await post('/suppliers',{supplierName:'Review '+suffix,contactPerson:'Test',phoneNumber:'',ntn:'',address:'',paymentTerms:''});
+  const customer=await post('/customers',{customerName:'Review '+suffix,type:'Retailer',contactPerson:'Test',phoneNumber:'',address:'',creditLimit:100000});
+  const makeProduct=(code,category,unit,kgPerBag=null)=>post('/products',{productCode:code+suffix,productName:'Review '+code,category,unit,kgPerBag,hsnCode:''});
+  const raw=await makeProduct('WHEAT','Raw Material','kg');
+  const bags=await makeProduct('FLOUR','Finished Good','bag',10);
+  const pack=await makeProduct('EMPTY','Packaging','piece');
+  const waste=await makeProduct('WASTE','Waste','kg');
+  const line=(p,quantity,ratePerUnit=1)=>({productID:p.productID,quantity,ratePerUnit});
+  const poBody=items=>({supplierID:supplier.supplierID,poDate:date,expectedDeliveryDate:null,lineItems:items});
+  await post('/purchaseorders',poBody([]),400);
+  await post('/purchaseorders',poBody([line(raw,-1)]),400);
+  await post('/purchaseorders',poBody([line(raw,1,-1)]),400);
+  await post('/purchaseorders',poBody([line(raw,0.0001)]),400);
+  const deleted=await post('/purchaseorders',poBody([line(raw,1)]));
+  const retained=await post('/purchaseorders',poBody([line(raw,1)]));
+  await request('/purchaseorders/'+deleted.poid,'DELETE',undefined,204);
+  const next=await post('/purchaseorders',poBody([line(raw,1)]));
+  assert.notEqual(next.poNumber,retained.poNumber); checks++;
+  const parallelOrders=await Promise.all(Array.from({length:5},()=>post('/purchaseorders',poBody([line(raw,1)]))));
+  same(new Set(parallelOrders.map(o=>o.poNumber)).size,5,'Concurrent document numbers');
+  const po=await post('/purchaseorders',poBody([line(raw,1000.3),line(pack,200)]));
+  await put('/purchaseorders/'+po.poid,{status:'Received',expectedDeliveryDate:null},400);
+  await put('/purchaseorders/'+po.poid,{status:'Sent',expectedDeliveryDate:null});
+  await request('/purchaseorders/'+po.poid,'DELETE',undefined,400);
+  const rawLine=po.lineItems.find(l=>l.productID===raw.productID),packLine=po.lineItems.find(l=>l.productID===pack.productID);
+  const countBody={poid:po.poid,poLineItemID:packLine.lineItemID,quantity:200,warehouseID:wh.warehouseID,lotNumber:'PACK-'+suffix,binCode:''};
+  await post('/inboundreceipts/count-receipt',{...countBody,quantity:201},400);
+  await post('/inboundreceipts/count-receipt',countBody);
+  same((await get('/purchaseorders/'+po.poid)).status,'Sent','Mixed PO stays open until all lines received');
+  const receipt=await post('/inboundreceipts/gate-entry',{poid:po.poid,poLineItemID:rawLine.lineItemID,truckNumber:'TEST',driverName:'Test',driverPhone:''});
+  await put('/inboundreceipts/'+receipt.receiptID+'/weighbridge',{grossWeight:1100.3,tareWeight:100});
+  await put('/inboundreceipts/'+receipt.receiptID+'/qc',{moisture:12,impurities:1,grainType:'Test',qcResult:'Approved'});
+  await put('/inboundreceipts/'+receipt.receiptID+'/grn',{warehouseID:wh.warehouseID,lotNumber:'RAW-'+suffix,binCode:''});
+  same((await get('/purchaseorders/'+po.poid)).status,'Received');
+  await put('/inboundreceipts/'+receipt.receiptID+'/grn',{warehouseID:wh.warehouseID,lotNumber:'RAW-'+suffix,binCode:''},400);
+  await request('/warehouses/'+wh.warehouseID,'DELETE',undefined,400);
+  await request('/products/'+raw.productID,'DELETE',undefined,400);
+  await put('/products/'+raw.productID,{...raw,unit:'bag',kgPerBag:10},400);
+  let stocks=await get('/inventory');
+  const rawStock=stocks.find(i=>i.productID===raw.productID), packagingStock=stocks.find(i=>i.productID===pack.productID);
+  same(rawStock.quantityAvailable,1000.3);
+  const batch=await post('/productionbatches',{productionDate:date,shiftNumber:1,operatorName:'Test'});
+  const bpath='/productionbatches/'+batch.batchID;
+  const inputBody={inventoryID:rawStock.inventoryID,productID:raw.productID,quantity:1000.3,sourceLotNumber:rawStock.lotNumber,sourceWarehouseID:wh.warehouseID};
+  await post(bpath+'/add-input',inputBody,204);
+  let detail=await get(bpath);
+  const inputID=detail.materials[0].batchMaterialID;
+  await post(bpath+'/reverse-material/'+inputID,{reason:'Verify exact stock restoration'},204);
+  await post(bpath+'/reverse-material/'+inputID,{reason:'Duplicate reversal'},400);
+  same((await get('/inventory')).find(i=>i.inventoryID===rawStock.inventoryID).quantityAvailable,1000.3);
+  await post(bpath+'/add-input',inputBody,204);
+  await post(bpath+'/add-output',{productID:bags.productID,quantity:1001,materialType:'Output'},204);
+  detail=await get(bpath);
+  const wrong=detail.materials.find(m=>m.materialType==='Output');
+  await post(bpath+'/reverse-material/'+wrong.batchMaterialID,{reason:'Correct a mistyped quantity'},204);
+  // Two concurrent output entries must both contribute to the totals.
+  await Promise.all([1000,0.1].map(quantity=>post(bpath+'/add-output',{productID:bags.productID,quantity,materialType:'Output'},204)));
+  await post(bpath+'/add-output',{productID:waste.productID,quantity:0.2,materialType:'Waste'},204);
+  detail=await get(bpath);
+  same(detail.totalOutputQuantity,1000.1);
+  const outputs=detail.materials.filter(m=>m.materialType==='Output'&&!m.isReversed);
+  await put(bpath+'/finalize',{warehouseID:wh.warehouseID},400);
+  for(const output of outputs) await put(bpath+'/approve-output/'+output.batchMaterialID,{});
+  await put(bpath+'/finalize',{warehouseID:wh.warehouseID});
+  await put(bpath+'/finalize',{warehouseID:wh.warehouseID},400);
+  await post(bpath+'/reverse-material/'+outputs[0].batchMaterialID,{reason:'Cannot change posted production'},400);
+  const largeOutput=outputs.find(o=>o.quantity===1000);
+  await post(bpath+'/pack-output/'+largeOutput.batchMaterialID,{quantityKg:1000,warehouseID:wh.warehouseID,packagingInventoryID:rawStock.inventoryID},400);
+  await post(bpath+'/pack-output/'+largeOutput.batchMaterialID,{quantityKg:1000,warehouseID:wh.warehouseID,packagingInventoryID:packagingStock.inventoryID},204);
+  await post(bpath+'/pack-output/'+largeOutput.batchMaterialID,{quantityKg:10,warehouseID:wh.warehouseID,packagingInventoryID:packagingStock.inventoryID},400);
+  stocks=await get('/inventory');
+  same(stocks.find(i=>i.productID===bags.productID&&i.stockForm==='Bulk').quantityAvailable,0.1);
+  same(stocks.find(i=>i.productID===bags.productID&&i.stockForm==='Standard').quantityAvailable,100);
+  same(stocks.find(i=>i.productID===pack.productID).quantityAvailable,100);
+  same((await get(bpath+'/packing-runs')).length,1);
+  await put('/products/'+bags.productID,{...bags,kgPerBag:25},400);
+  const soBody={customerID:customer.customerID,soDate:date,expectedDeliveryDate:null,lineItems:[line(bags,100,10)]};
+  const so=await post('/salesorders',soBody);
+  const spath='/salesorders/'+so.salesOrderID;
+  const dispatchPath=spath+'/dispatch/'+so.lineItems[0].lineItemID;
+  await put(dispatchPath,{dispatchedQuantity:101,truckNumber:'A',driverName:'A'},400);
+  await put(dispatchPath,{dispatchedQuantity:40,truckNumber:'A',driverName:'Driver A'});
+  await put(dispatchPath,{dispatchedQuantity:60,truckNumber:'B',driverName:'Driver B'});
+  const history=await get(spath+'/dispatches');
+  same(history.length,2);
+  same(history.flatMap(d=>d.lines).reduce((sum,l)=>sum+l.quantity,0),100);
+  same(new Set(history.map(d=>d.truckNumber)).size,2);
+  const invoiceBody={salesOrderID:so.salesOrderID,invoiceDate:date,taxAmount:0,dueDays:0};
+  await post('/invoices',{...invoiceBody,taxAmount:-1},400);
+  const invoices=await Promise.all([request('/invoices','POST',invoiceBody,null),request('/invoices','POST',invoiceBody,null)]);
+  same(invoices.filter(i=>i.status===201).length,1); same(invoices.filter(i=>i.status===400).length,1);
+  const invoice=invoices.find(i=>i.status===201).value;
+  same(invoice.lines.length,1); same(invoice.dueDate.slice(0,10),date);
+  await put('/products/'+bags.productID,{...bags,productName:'Renamed after invoice'});
+  same((await get('/invoices/'+invoice.invoiceID)).lines[0].productName,bags.productName,'Invoice snapshot must survive product rename');
+  const payBody={invoiceID:invoice.invoiceID,paymentDate:date,paymentMode:'Cash',paymentAmount:600,reference:'Concurrency check'};
+  const payments=await Promise.all([request('/payments','POST',payBody,null),request('/payments','POST',payBody,null)]);
+  same(payments.filter(p=>p.status===201).length,1); same(payments.filter(p=>p.status===400).length,1);
+  same((await get('/customers/'+customer.customerID)).outstandingBalance,400);
+  await post('/payments',{...payBody,paymentAmount:0},400);
+  await post('/payments',{...payBody,paymentAmount:0.001},400);
+  await post('/payments',{...payBody,paymentAmount:400});
+  same((await get('/invoices/'+invoice.invoiceID)).status,'Paid');
+  same((await get('/customers/'+customer.customerID)).outstandingBalance,0);
+  const ourStock=(await get('/inventory')).filter(i=>i.warehouseID===wh.warehouseID);
+  for(const stock of ourStock) {
+    const movements=await get('/inventory/'+stock.inventoryID+'/movements');
+    same(Math.round(movements.reduce((sum,m)=>sum+m.quantityChange,0)*1000),Math.round(stock.quantityAvailable*1000),'Ledger reconciles to inventory');
+  }
+  const {quantityBalance,wholeBags}=await import('../kratix-ui/src/utils/quantities.ts');
+  same(quantityBalance(1000.3,1000.1,0.2),0,'Frontend decimal reconciliation');
+  same(wholeBags(0.3,0.1),true,'Frontend fractional bag size');
+  same(wholeBags(0.31,0.1),false);
+  console.log(`PASS: ${checks} checks across receiving, corrections, packing, delivery history, invoicing, concurrent writes, and ledger reconciliation.`);
+}
+main().catch(err=>{console.error(err.message);process.exitCode=1;});

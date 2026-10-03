@@ -3,6 +3,7 @@ namespace Kratix.ERP.DTOs;
 public class InventoryDTO
 {
     public int InventoryID { get; set; }
+    public string StockForm { get; set; } = "Standard";
     public int ProductID { get; set; }
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;

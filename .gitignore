@@ -25,6 +25,7 @@ obj/
 *.suo
 *.rsuser
 TestResults/
+artifacts/
 
 # ---------------------------------------------------------------
 # Node / Vite

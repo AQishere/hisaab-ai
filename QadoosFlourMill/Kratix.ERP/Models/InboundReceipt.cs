@@ -4,10 +4,13 @@ namespace Kratix.ERP.Models;
 
 public class InboundReceipt
 {
+    public decimal? ReceivedQuantity { get; set; }
+    public string ReceiptType { get; set; } = "Weighed";
     [Key]
     public int ReceiptID { get; set; }
     public string ReceiptNumber { get; set; } = null!;
     public int POID { get; set; }
+    public int? POLineItemID { get; set; }
 
     // Gate Entry info
     public string? TruckNumber { get; set; }
@@ -38,6 +41,7 @@ public class InboundReceipt
     public DateTime CreatedDate { get; set; } = DateTime.Now;
 
     public PurchaseOrder? PurchaseOrder { get; set; }
+    public POLineItem? POLineItem { get; set; }
     public Warehouse? Warehouse { get; set; }
     public User? ReceivedByUser { get; set; }
 }

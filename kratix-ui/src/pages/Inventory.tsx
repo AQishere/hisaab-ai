@@ -5,10 +5,13 @@ import type { InventoryItem } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { formatDateTime, formatNumber } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
+import { DetailDialog } from '../components/ui/DetailDialog';
+import { StockHistory } from '../components/HistoryTables';
 import DataTable from '../components/ui/DataTable';
 
 const Inventory: React.FC = () => {
   const { data, loading, error, reload } = useFetch<InventoryItem[]>('/inventory');
+  const [selected, setSelected] = useState<InventoryItem | null>(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -79,6 +82,7 @@ const Inventory: React.FC = () => {
       <DataTable
         rows={rows}
         rowKey={(i) => i.inventoryID}
+        onRowClick={setSelected}
         loading={loading}
         error={error}
         onRetry={reload}
@@ -95,6 +99,7 @@ const Inventory: React.FC = () => {
               </>
             ),
           },
+          { key: 'form', label: 'Form', render: (i) => i.stockForm === 'Bulk' ? 'Unpacked bulk' : i.unit === 'bag' ? 'Packed bags' : 'Stock' },
           { key: 'cat', label: 'Category', render: (i) => i.category },
           { key: 'wh', label: 'Warehouse', render: (i) => i.warehouseName },
           { key: 'bin', label: 'Bin', render: (i) => i.binCode || '-' },
@@ -103,6 +108,10 @@ const Inventory: React.FC = () => {
           { key: 'upd', label: 'Updated', render: (i) => formatDateTime(i.lastUpdatedDate) },
         ]}
       />
+      {selected && <DetailDialog open maxWidth="lg" title={`Stock history: ${selected.productName} / ${selected.lotNumber || '-'}`} onClose={() => setSelected(null)}>
+        <Typography variant="body2">Opening balances preserve stock at the history upgrade; older individual movements are not reconstructed.</Typography>
+        <StockHistory inventoryID={selected.inventoryID} />
+      </DetailDialog>}
     </Box>
   );
 };

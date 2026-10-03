@@ -26,6 +26,7 @@ public class InboundReceiptsController : ControllerBase
         var receipts = await context.InboundReceipts
             .Include(ir => ir.Warehouse)
             .Include(ir => ir.PurchaseOrder)
+            .Include(ir => ir.POLineItem).ThenInclude(li => li!.Product)
             .ToListAsync();
 
         return Ok(receipts.Select(r => MapToDTO(r)).ToList());
@@ -37,6 +38,7 @@ public class InboundReceiptsController : ControllerBase
         var receipt = await context.InboundReceipts
             .Include(ir => ir.Warehouse)
             .Include(ir => ir.PurchaseOrder)
+            .Include(ir => ir.POLineItem).ThenInclude(li => li!.Product)
             .FirstOrDefaultAsync(ir => ir.ReceiptID == id);
 
         if (receipt == null)
@@ -48,9 +50,25 @@ public class InboundReceiptsController : ControllerBase
     [HttpPost("gate-entry")]
     public async Task<ActionResult<InboundReceiptDTO>> CreateGateEntry(CreateGateEntryDTO dto)
     {
-        var po = await context.PurchaseOrders.FindAsync(dto.POID);
+        var po = await context.PurchaseOrders
+            .Include(p => p.POLineItems)
+            .ThenInclude(li => li.Product)
+            .FirstOrDefaultAsync(p => p.POID == dto.POID);
         if (po == null)
             return BadRequest("Purchase Order not found");
+
+        if (po.Status != "Sent")
+            return BadRequest("Purchase Order must be sent before gate entry");
+
+        var lineItem = po.POLineItems.FirstOrDefault(li => li.LineItemID == dto.POLineItemID);
+        if (lineItem == null)
+            return BadRequest("Choose a line item from this Purchase Order");
+
+        if (lineItem.Product?.Category != "Raw Material" || lineItem.Product.Unit != "kg")
+            return BadRequest("Weighed receipts require a raw material ordered in kg");
+
+        if (lineItem.ReceivedQuantity >= lineItem.Quantity)
+            return BadRequest("This Purchase Order line has already been fully received");
 
         var receiptNumber = await GenerateReceiptNumber();
 
@@ -58,6 +76,7 @@ public class InboundReceiptsController : ControllerBase
         {
             ReceiptNumber = receiptNumber,
             POID = dto.POID,
+            POLineItemID = dto.POLineItemID,
             TruckNumber = dto.TruckNumber,
             DriverName = dto.DriverName,
             DriverPhone = dto.DriverPhone,
@@ -72,6 +91,7 @@ public class InboundReceiptsController : ControllerBase
         var createdReceipt = await context.InboundReceipts
             .Include(ir => ir.Warehouse)
             .Include(ir => ir.PurchaseOrder)
+            .Include(ir => ir.POLineItem).ThenInclude(li => li!.Product)
             .FirstOrDefaultAsync(ir => ir.ReceiptID == receipt.ReceiptID);
 
         return CreatedAtAction(nameof(GetById), new { id = receipt.ReceiptID }, MapToDTO(createdReceipt));
@@ -83,6 +103,12 @@ public class InboundReceiptsController : ControllerBase
         var receipt = await context.InboundReceipts.FindAsync(id);
         if (receipt == null)
             return NotFound();
+
+        if (receipt.Status != "GateEntry")
+            return BadRequest("Only a gate entry can be weighed");
+
+        if (dto.TareWeight < 0 || decimal.Round(dto.TareWeight, 3) != dto.TareWeight || !BusinessRules.Quantity(dto.GrossWeight) || dto.GrossWeight <= dto.TareWeight)
+            return BadRequest("Gross weight must be positive and greater than tare weight");
 
         receipt.GrossWeight = dto.GrossWeight;
         receipt.TareWeight = dto.TareWeight;
@@ -99,6 +125,15 @@ public class InboundReceiptsController : ControllerBase
         var receipt = await context.InboundReceipts.FindAsync(id);
         if (receipt == null)
             return NotFound();
+
+        if (receipt.Status != "Weighed" || receipt.NetWeight is null or <= 0)
+            return BadRequest("Receipt must have a positive net weight before quality inspection");
+
+        if (dto.Moisture < 0 || dto.Moisture > 100 || dto.Impurities < 0 || dto.Impurities > 100)
+            return BadRequest("Quality percentages must be between 0 and 100");
+
+        if (dto.QCResult != "Approved" && dto.QCResult != "Rejected")
+            return BadRequest("QC result must be Approved or Rejected");
 
         receipt.Moisture = dto.Moisture;
         receipt.Impurities = dto.Impurities;
@@ -120,73 +155,96 @@ public class InboundReceiptsController : ControllerBase
         if (receipt.Status != "QCApproved")
             return BadRequest("QC must be approved before creating GRN");
 
-        receipt.WarehouseID = dto.WarehouseID;
-        receipt.BinCode = dto.BinCode;
-        receipt.LotNumber = dto.LotNumber;
-        receipt.ReceivedDate = DateTime.Now;
-        receipt.Status = "Received";
+        if (receipt.NetWeight is null or <= 0)
+            return BadRequest("Receipt must have a positive net weight");
+
+        if (string.IsNullOrWhiteSpace(dto.LotNumber) || dto.LotNumber.Length > 100 || dto.BinCode?.Length > 64)
+            return BadRequest("Lot number is required");
 
         var warehouse = await context.Warehouses.FindAsync(dto.WarehouseID);
-        if (warehouse == null)
+        if (warehouse == null || !warehouse.IsActive)
             return BadRequest("Warehouse not found");
 
         var po = await context.PurchaseOrders
             .Include(p => p.POLineItems)
             .FirstOrDefaultAsync(p => p.POID == receipt.POID);
 
-        if (po != null && po.POLineItems.Any())
-        {
-            foreach (var lineItem in po.POLineItems)
-            {
-                var inventory = await context.Inventories
-                    .FirstOrDefaultAsync(inv =>
-                        inv.ProductID == lineItem.ProductID &&
-                        inv.WarehouseID == dto.WarehouseID &&
-                        inv.LotNumber == dto.LotNumber);
+        if (po == null)
+            return BadRequest("Purchase Order not found");
 
-                if (inventory != null)
-                {
-                    inventory.QuantityAvailable += receipt.NetWeight ?? 0;
-                    inventory.LastUpdatedDate = DateTime.Now;
-                }
-                else
-                {
-                    var newInventory = new Inventory
-                    {
-                        ProductID = lineItem.ProductID,
-                        WarehouseID = dto.WarehouseID,
-                        BinCode = dto.BinCode,
-                        LotNumber = dto.LotNumber,
-                        QuantityAvailable = receipt.NetWeight ?? 0,
-                        LastUpdatedDate = DateTime.Now
-                    };
-                    context.Inventories.Add(newInventory);
-                }
+        if (po.Status != "Sent")
+            return BadRequest("Purchase Order must still be sent to receive stock");
 
-                lineItem.ReceivedQuantity = receipt.NetWeight ?? 0;
-            }
+        var lineItem = receipt.POLineItemID.HasValue
+            ? po.POLineItems.FirstOrDefault(li => li.LineItemID == receipt.POLineItemID)
+            : po.POLineItems.Count == 1 ? po.POLineItems.Single() : null;
+        if (lineItem == null)
+            return BadRequest("Receipt must identify one Purchase Order line");
 
-            po.Status = "Received";
-        }
+        var receivedWeight = receipt.NetWeight.Value;
+        if (receivedWeight > lineItem.Quantity - lineItem.ReceivedQuantity)
+            return BadRequest("Received weight exceeds the remaining Purchase Order quantity");
+
+        var inventory = await StockLedger.GetOrCreate(context, lineItem.ProductID, dto.WarehouseID, dto.BinCode, dto.LotNumber);
+        StockLedger.Change(context, inventory, receivedWeight, "kg", "Receipt", receipt.ReceiptNumber, User);
+
+        lineItem.ReceivedQuantity += receivedWeight;
+        po.Status = po.POLineItems.All(li => li.ReceivedQuantity >= li.Quantity) ? "Received" : "Sent";
+        receipt.POLineItemID = lineItem.LineItemID;
+        receipt.WarehouseID = dto.WarehouseID;
+        receipt.BinCode = dto.BinCode;
+        receipt.LotNumber = dto.LotNumber;
+        receipt.ReceivedDate = DateTime.Now;
+        receipt.ReceivedQuantity = receivedWeight;
+        receipt.ReceivedBy = StockLedger.UserId(User);
+        receipt.Status = "Received";
 
         await context.SaveChangesAsync();
         return NoContent();
     }
 
-    private async Task<string> GenerateReceiptNumber()
+    [HttpPost("count-receipt")]
+    public async Task<ActionResult> ReceivePackaging(CountReceiptDTO dto)
     {
-        var count = await context.InboundReceipts.CountAsync();
-        var year = DateTime.Now.Year;
-        return $"GE-{year}-{count + 1:D3}";
+        if (!BusinessRules.Quantity(dto.Quantity) || dto.Quantity != decimal.Truncate(dto.Quantity))
+            return BadRequest("Packaging quantity must be a positive whole number of pieces.");
+        if (string.IsNullOrWhiteSpace(dto.LotNumber) || dto.LotNumber.Length > 100 || dto.BinCode?.Length > 64)
+            return BadRequest("Provide a lot number (up to 100 characters) and a bin of at most 64 characters.");
+        var order = await context.PurchaseOrders.Include(o => o.POLineItems).ThenInclude(l => l.Product).FirstOrDefaultAsync(o => o.POID == dto.POID);
+        if (order == null || order.Status != "Sent") return BadRequest("Choose a sent purchase order.");
+        var line = order.POLineItems.FirstOrDefault(l => l.LineItemID == dto.POLineItemID);
+        if (line?.Product?.Category != "Packaging" || line.Product.Unit != "piece") return BadRequest("Choose a packaging line ordered in pieces.");
+        if (dto.Quantity > line.Quantity - line.ReceivedQuantity) return BadRequest("Quantity exceeds the remaining order quantity.");
+        if (!await context.Warehouses.AnyAsync(w => w.WarehouseID == dto.WarehouseID && w.IsActive)) return BadRequest("Choose an active warehouse.");
+        var receipt = new InboundReceipt
+        {
+            ReceiptNumber = await GenerateReceiptNumber(), POID = dto.POID, POLineItemID = dto.POLineItemID,
+            ReceiptType = "Counted", ReceivedQuantity = dto.Quantity, Status = "Received",
+            WarehouseID = dto.WarehouseID, BinCode = string.IsNullOrWhiteSpace(dto.BinCode) ? null : dto.BinCode.Trim(), LotNumber = dto.LotNumber.Trim(),
+            ArrivalDateTime = DateTime.Now, ReceivedDate = DateTime.Now, ReceivedBy = StockLedger.UserId(User),
+            TruckNumber = dto.TruckNumber, DriverName = dto.DriverName
+        };
+        context.InboundReceipts.Add(receipt);
+        var inventory = await StockLedger.GetOrCreate(context, line.ProductID, dto.WarehouseID, dto.BinCode, dto.LotNumber);
+        StockLedger.Change(context, inventory, dto.Quantity, "piece", "Receipt", receipt.ReceiptNumber, User);
+        line.ReceivedQuantity += dto.Quantity;
+        order.Status = order.POLineItems.All(l => l.ReceivedQuantity >= l.Quantity) ? "Received" : "Sent";
+        await context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetById), new { id = receipt.ReceiptID }, new { receipt.ReceiptID, receipt.ReceiptNumber });
     }
+
+    private Task<string> GenerateReceiptNumber() => BusinessRules.NextNumber(context, "GE");
 
     private InboundReceiptDTO MapToDTO(InboundReceipt r)
     {
         return new InboundReceiptDTO
         {
             ReceiptID = r.ReceiptID,
+            ReceiptType = r.ReceiptType, ReceivedQuantity = r.ReceivedQuantity,
             ReceiptNumber = r.ReceiptNumber,
             POID = r.POID,
+            POLineItemID = r.POLineItemID,
+            ProductName = r.POLineItem?.Product?.ProductName,
             PONumber = r.PurchaseOrder?.PONumber ?? string.Empty,
             TruckNumber = r.TruckNumber,
             DriverName = r.DriverName,

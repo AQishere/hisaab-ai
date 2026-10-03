@@ -53,7 +53,8 @@ builder.Services
 
 builder.Services.AddAuthorization(Policies.Register);
 
-builder.Services.AddControllers();
+builder.Services.AddScoped<BusinessWriteFilter>();
+builder.Services.AddControllers(options => options.Filters.AddService<BusinessWriteFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

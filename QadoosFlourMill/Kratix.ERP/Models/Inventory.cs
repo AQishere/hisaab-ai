@@ -8,6 +8,8 @@ public class Inventory
     public string? BinCode { get; set; }
     public string? LotNumber { get; set; }
     public decimal QuantityAvailable { get; set; }
+    public string StockForm { get; set; } = "Standard"; // Bulk is always measured in kg.
+    public DateTime ReceivedAt { get; set; } = DateTime.Now;
     public DateTime LastUpdatedDate { get; set; } = DateTime.Now;
 
     public Product? Product { get; set; }

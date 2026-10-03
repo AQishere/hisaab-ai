@@ -181,9 +181,17 @@ const Layout: React.FC = () => {
             <MenuIcon />
           </IconButton>
 
-          <Typography sx={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.5px', flex: 1 }}>
-            Qadoos Flour Mill
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1, minWidth: 0 }}>
+            <Box sx={{ width: 3, height: 30, borderRadius: 2, bgcolor: 'primary.main', flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: '10px', fontWeight: 800, letterSpacing: '1.1px', lineHeight: 1.3, color: 'text.secondary' }}>
+                WORKSPACE
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '14px', sm: '15px' }, fontWeight: 750, letterSpacing: '-0.35px', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Crescent Flour Mills
+              </Typography>
+            </Box>
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ThemeToggle />

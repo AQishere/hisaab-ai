@@ -115,10 +115,10 @@ const Login: React.FC = () => {
         sx={(theme) => ({
           position: 'relative',
           width: '100%',
-          maxWidth: 1040,
-          minHeight: { md: 580 },
+          maxWidth: 1080,
+          minHeight: { md: 610 },
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', md: '0.95fr 1.05fr' },
           bgcolor: 'background.paper',
           borderRadius: '16px',
           overflow: 'hidden',
@@ -131,17 +131,23 @@ const Login: React.FC = () => {
         </Box>
 
         {/* form side */}
-        <Box sx={{ px: { xs: 3, sm: 6 }, py: { xs: 4, sm: 6 }, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ mb: { xs: 1, md: 5 } }}>
+        <Box sx={{ px: { xs: 3, sm: 6 }, py: { xs: 4, sm: 5.5 }, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ mb: { xs: 1, md: 4 } }}>
             <BrandLogo height={34} />
           </Box>
 
-          <Box sx={{ my: 'auto', pt: { xs: 4, md: 0 }, width: '100%', maxWidth: 380 }}>
+          <Box sx={{ my: 'auto', pt: { xs: 4, md: 0 }, width: '100%', maxWidth: 390 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 2.25 }}>
+              <Box sx={{ width: 28, height: 3, borderRadius: 2, bgcolor: 'primary.main' }} />
+              <Typography sx={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1.2px', color: 'text.secondary' }}>
+                CRESCENT FLOUR MILLS
+              </Typography>
+            </Box>
             <Typography
               component="h1"
-              sx={{ fontSize: { xs: '26px', sm: '30px' }, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.5px', color: HEADLINE, mb: 4 }}
+              sx={{ fontSize: { xs: '34px', sm: '40px', md: '38px' }, fontWeight: 800, lineHeight: 1.08, letterSpacing: '-1.5px', color: HEADLINE, mb: 4 }}
             >
-              Integrated Management for Modern Flour Mills
+              Integrated<br />Managment System
             </Typography>
 
             {error && (
@@ -204,23 +210,22 @@ const Login: React.FC = () => {
                 label="Remember me for 7 days"
               />
 
-              <Box>
-                <Button
-                  variant="contained"
-                  disabled={loading || !username || !password}
-                  type="submit"
-                  sx={{ fontSize: '14px', px: 4, py: '9px', minWidth: 140, '&:hover': { bgcolor: 'primary.dark', transform: 'translateY(-1px)' } }}
-                >
-                  {loading ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
-                </Button>
-              </Box>
+              <Button
+                fullWidth
+                variant="contained"
+                disabled={loading || !username || !password}
+                type="submit"
+                sx={{ fontSize: '14px', fontWeight: 700, py: 1.15, '&:hover': { bgcolor: 'primary.dark', transform: 'translateY(-1px)' } }}
+              >
+                {loading ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
+              </Button>
             </Box>
           </Box>
 
           {DEMO_ACCOUNTS.length > 0 && (
-            <Box sx={{ mt: 5 }}>
+            <Box sx={{ mt: { xs: 5, md: 4 }, pt: 2.5, borderTop: 1, borderColor: 'divider' }}>
               <Typography sx={{ fontSize: '12px', color: 'text.secondary', mb: 1 }}>
-                Try a demo account (click to fill in):
+                Try a demo account
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {DEMO_ACCOUNTS.map((acc) => (

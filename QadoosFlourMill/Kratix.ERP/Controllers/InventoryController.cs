@@ -29,7 +29,8 @@ public class InventoryController(AppDbContext context) : ControllerBase
                 ProductCode = i.Product!.ProductCode,
                 ProductName = i.Product.ProductName,
                 Category = i.Product.Category,
-                Unit = i.Product.Unit,
+                Unit = i.StockForm == "Bulk" ? "kg" : i.Product.Unit,
+                StockForm = i.StockForm,
                 WarehouseID = i.WarehouseID,
                 WarehouseName = i.Warehouse!.WarehouseName,
                 BinCode = i.BinCode,
@@ -41,4 +42,8 @@ public class InventoryController(AppDbContext context) : ControllerBase
 
         return Ok(items);
     }
+    [HttpGet("{id}/movements")]
+    public async Task<ActionResult> Movements(int id) => Ok(await context.StockMovements.Where(m => m.InventoryID == id)
+        .OrderByDescending(m => m.RecordedAt).ThenByDescending(m => m.StockMovementID)
+        .Select(m => new { m.StockMovementID, m.RecordedAt, m.MovementType, m.Reference, m.QuantityChange, m.Unit, m.Reason }).ToListAsync());
 }

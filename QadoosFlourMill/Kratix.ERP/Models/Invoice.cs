@@ -21,4 +21,5 @@ public class Invoice
     public SalesOrder? SalesOrder { get; set; }
     public Customer? Customer { get; set; }
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public ICollection<InvoiceLine> Lines { get; set; } = new List<InvoiceLine>();
 }

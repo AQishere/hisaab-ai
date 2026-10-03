@@ -6,6 +6,7 @@ public class Warehouse
     public string WarehouseName { get; set; } = null!;
     public string? Location { get; set; }
     public decimal Capacity { get; set; }
+    public bool IsActive { get; set; } = true;
     public DateTime CreatedDate { get; set; } = DateTime.Now;
 
     public ICollection<InboundReceipt> InboundReceipts { get; set; } = new List<InboundReceipt>();

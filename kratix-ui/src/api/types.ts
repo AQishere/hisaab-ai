@@ -29,11 +29,13 @@ export interface Product {
   productName: string;
   category: string;
   unit: string;
+  kgPerBag: number | null;
   hsnCode: string;
   createdDate: string;
 }
 
 export interface Warehouse {
+  isActive: boolean;
   warehouseID: number;
   warehouseName: string;
   location: string;
@@ -66,9 +68,13 @@ export interface PurchaseOrder {
 }
 
 export interface InboundReceipt {
+  receiptType: string;
+  receivedQuantity: number | null;
   receiptID: number;
   receiptNumber: string;
   poid: number;
+  poLineItemID: number | null;
+  productName: string | null;
   poNumber: string;
   truckNumber: string;
   driverName: string;
@@ -91,6 +97,7 @@ export interface InboundReceipt {
 }
 
 export interface InventoryItem {
+  stockForm: string;
   inventoryID: number;
   productID: number;
   productCode: string;
@@ -106,11 +113,18 @@ export interface InventoryItem {
 }
 
 export interface BatchMaterial {
+  kgPerBag: number | null;
+  sourceInventoryID: number | null;
+  outputInventoryID: number | null;
+  sourceWarehouseID: number | null;
+  isReversed: boolean;
+  reversalReason: string | null;
   batchMaterialID: number;
   productID: number;
   productName: string;
   materialType: 'Input' | 'Output' | 'Waste';
   quantity: number;
+  packedQuantityKg: number;
   sourceLotNumber: string | null;
   isQualityApproved: boolean;
 }
@@ -158,6 +172,7 @@ export interface SalesOrder {
 }
 
 export interface Invoice {
+  lines: { invoiceLineID: number; productCode: string; productName: string; unit: string; quantity: number; ratePerUnit: number; totalAmount: number; kgPerBag: number | null; isLegacySnapshot: boolean }[];
   invoiceID: number;
   invoiceNumber: string;
   salesOrderID: number;

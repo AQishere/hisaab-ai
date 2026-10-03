@@ -63,6 +63,7 @@ public class WarehousesController : ControllerBase
         warehouse.WarehouseName = dto.WarehouseName;
         warehouse.Location = dto.Location;
         warehouse.Capacity = dto.Capacity;
+        warehouse.IsActive = dto.IsActive;
 
         await context.SaveChangesAsync();
         return NoContent();
@@ -76,6 +77,10 @@ public class WarehousesController : ControllerBase
         if (warehouse == null)
             return NotFound();
 
+        if (await context.Inventories.AnyAsync(i => i.WarehouseID == id) ||
+            await context.InboundReceipts.AnyAsync(r => r.WarehouseID == id) ||
+            await context.BatchMaterials.AnyAsync(m => m.SourceWarehouseID == id))
+            return BadRequest("This warehouse has stock or history. Deactivate it instead of deleting it.");
         context.Warehouses.Remove(warehouse);
         await context.SaveChangesAsync();
         return NoContent();
@@ -89,6 +94,7 @@ public class WarehousesController : ControllerBase
             WarehouseName = w.WarehouseName,
             Location = w.Location,
             Capacity = w.Capacity,
+            IsActive = w.IsActive,
             CreatedDate = w.CreatedDate
         };
     }
