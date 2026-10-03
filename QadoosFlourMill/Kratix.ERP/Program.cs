@@ -9,7 +9,7 @@ using Kratix.ERP.Data;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=(localdb)\\mssqllocaldb;Database=QadoosFlourmill;Trusted_Connection=true;";
+    ?? "Server=(localdb)\\mssqllocaldb;Database=Kratix_ERP;Trusted_Connection=true;";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
