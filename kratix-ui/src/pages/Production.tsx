@@ -272,7 +272,7 @@ const Production: React.FC = () => {
               { key: 'q', label: 'Quantity', align: 'right', render: (m) => `${formatNumber(m.quantity)} kg` },
               {
                 key: 'approval', label: 'Quality', render: (m) => m.materialType === 'Output'
-                  ? m.isQualityApproved ? 'Approved' : 'Pending approval'
+                  ? m.isReversed ? 'Reversed' : m.isQualityApproved ? 'Approved' : 'Pending approval'
                   : '-',
               },
               {

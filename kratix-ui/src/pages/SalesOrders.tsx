@@ -223,7 +223,7 @@ const SalesOrders: React.FC = () => {
                 label: '',
                 align: 'right',
                 render: (l) =>
-                  l.quantity > l.dispatchedQuantity ? (
+                  l.quantity > l.dispatchedQuantity && !['Closed', 'Cancelled', 'Dispatched'].includes(selected.status) ? (
                     <Button
                       size="small"
                       variant="outlined"

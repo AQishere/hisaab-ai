@@ -13,7 +13,7 @@ import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
 import PaymentDialog from '../components/PaymentDialog';
 
-const isOverdue = (i: Invoice) => i.balanceRemaining > 0 && !!i.dueDate && new Date(i.dueDate) < new Date(todayISO());
+const isOverdue = (i: Invoice) => i.balanceRemaining > 0 && !!i.dueDate && i.dueDate.slice(0, 10) < todayISO();
 
 const addDays = (iso: string, days: number) => {
   const d = new Date(iso);
@@ -144,7 +144,7 @@ const Invoices: React.FC = () => {
         >
           {invoiceable.map((o) => (
             <MenuItem key={o.salesOrderID} value={String(o.salesOrderID)}>
-              {o.soNumber} : {o.customerName}, {formatMoney(o.totalAmount)}
+              {o.soNumber} : {o.customerName}, {formatMoney(o.lineItems.reduce((sum, l) => sum + Math.round(l.dispatchedQuantity * l.ratePerUnit * 100) / 100, 0))}
             </MenuItem>
           ))}
         </TextField>
