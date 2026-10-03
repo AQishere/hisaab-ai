@@ -197,6 +197,90 @@ async function main() {
     const movements=await get('/inventory/'+stock.inventoryID+'/movements');
     same(Math.round(movements.reduce((sum,m)=>sum+m.quantityChange,0)*1000),Math.round(stock.quantityAvailable*1000),'Ledger reconciles to inventory');
   }
+  // Accounts: management only; role, password and active changes revoke existing tokens.
+  const ownerToken=token;
+  const loginAs=async(username,password,expected=200)=>{const r=await request('/auth/login','POST',{username,password},expected);return r?.token;};
+  const as=async(t,fn)=>{const saved=token;token=t;try{return await fn();}finally{token=saved;}};
+  const worker=cfg.DemoUsers.find(u=>u.Role==='Worker');
+  const workerToken=await loginAs(worker.Username,worker.Password);
+  await as(workerToken,()=>request('/users',undefined,undefined,403));
+  const uname='rv'+suffix, firstPass='First-pass-1';
+  await post('/users',{username:'Bad Name',role:'Sales',password:firstPass},400);
+  await post('/users',{username:uname,role:'Sales',password:'short'},400);
+  await post('/users',{username:uname,role:'Boss',password:firstPass},400);
+  const account=await post('/users',{username:uname,email:'rv@example.com',role:'Sales',password:firstPass});
+  await post('/users',{username:uname,role:'Sales',password:firstPass},400);
+  let userToken=await loginAs(uname,firstPass);
+  await as(userToken,()=>get('/salesorders'));
+  await as(userToken,()=>request('/reports/stock',undefined,undefined,403));
+  await as(userToken,()=>request('/users',undefined,undefined,403));
+  await put('/users/'+account.userID,{email:'rv@example.com',role:'Worker',isActive:true},200);
+  await as(userToken,()=>request('/salesorders',undefined,undefined,401));
+  userToken=await loginAs(uname,firstPass);
+  await as(userToken,()=>get('/inventory'));
+  await put('/users/'+account.userID+'/password',{newPassword:'abc'},400);
+  await put('/users/'+account.userID+'/password',{newPassword:'Reset-pass-2'});
+  await as(userToken,()=>request('/inventory',undefined,undefined,401));
+  await loginAs(uname,firstPass,401);
+  userToken=await loginAs(uname,'Reset-pass-2');
+  await as(userToken,()=>request('/auth/change-password','POST',{currentPassword:'wrong-pass',newPassword:'Mine-pass-3'},400));
+  await as(userToken,()=>request('/auth/change-password','POST',{currentPassword:'Reset-pass-2',newPassword:'Reset-pass-2'},400));
+  const changed=await as(userToken,()=>request('/auth/change-password','POST',{currentPassword:'Reset-pass-2',newPassword:'Mine-pass-3'},200));
+  await as(userToken,()=>request('/inventory',undefined,undefined,401));
+  await as(changed.token,()=>get('/inventory'));
+  await put('/users/'+account.userID,{email:null,role:'Worker',isActive:false},200);
+  await as(changed.token,()=>request('/inventory',undefined,undefined,401));
+  await loginAs(uname,'Mine-pass-3',401);
+  const me=(await get('/users')).find(u=>u.role==='Owner'&&u.isActive);
+  const ownerId=JSON.parse(Buffer.from(ownerToken.split('.')[1],'base64url').toString()).nameid;
+  await put('/users/'+ownerId,{email:null,role:'Owner',isActive:false},400);
+  await put('/users/'+ownerId,{email:null,role:'Sales',isActive:true},400);
+  same(!!me,true);
+  const tempAdmin=await post('/users',{username:'ra'+suffix,role:'Admin',password:firstPass});
+  same((await put('/users/'+tempAdmin.userID,{email:null,role:'Sales',isActive:false},200)).isActive,false,'Another manager remains, so a manager can be demoted');
+
+  // Editing orders: purchase orders while draft, sales orders until the first dispatch.
+  const draft=await post('/purchaseorders',poBody([line(raw,10,2)]));
+  const editedPO=await put('/purchaseorders/'+draft.poid+'/details',poBody([line(raw,20,3),line(pack,5,1)]),200);
+  same(editedPO.lineItems.length,2); same(editedPO.totalAmount,65);
+  await put('/purchaseorders/'+draft.poid+'/details',poBody([]),400);
+  await put('/purchaseorders/'+draft.poid,{status:'Sent',expectedDeliveryDate:null});
+  await put('/purchaseorders/'+draft.poid+'/details',poBody([line(raw,1)]),400);
+  const editSO=await post('/salesorders',{...soBody,lineItems:[line(bags,2,10)]});
+  const editedSO=await put('/salesorders/'+editSO.salesOrderID+'/details',{...soBody,lineItems:[line(bags,3,12)]},200);
+  same(editedSO.totalAmount,36); same(editedSO.lineItems[0].quantity,3);
+  await put('/salesorders/'+editSO.salesOrderID+'/details',{...soBody,lineItems:[line(raw,3,12)]},400);
+  await put('/salesorders/'+editSO.salesOrderID+'/dispatch/'+editedSO.lineItems[0].lineItemID,{dispatchedQuantity:1,truckNumber:'E',driverName:'Edit test'});
+  await put('/salesorders/'+editSO.salesOrderID+'/details',{...soBody,lineItems:[line(bags,5,12)]},400);
+
+  // Reports reconcile with the ledger, batches, invoices and payments.
+  await request('/reports/stock?from='+date+'&to=2000-01-01',undefined,undefined,400);
+  // The ledger records server local time; documents above use the UTC date string.
+  const localDate=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const stockReport=await get('/reports/stock?from=2024-01-01&to='+localDate);
+  for(const r of stockReport.rows) same(Math.round((r.opening+r.received+r.produced+r.used+r.dispatched)*1000),Math.round(r.closing*1000),'Stock report row balances');
+  const inventoryNow=await get('/inventory');
+  for(const form of ['Standard','Bulk']){
+    const reported=stockReport.rows.filter(r=>r.productCode===bags.productCode&&r.stockForm===form).reduce((s,r)=>s+r.closing,0);
+    const actual=inventoryNow.filter(i=>i.productID===bags.productID&&i.stockForm===form).reduce((s,i)=>s+i.quantityAvailable,0);
+    same(Math.round(reported*1000),Math.round(actual*1000),'Stock report closing matches inventory ('+form+')');
+  }
+  const productionReport=await get('/reports/production?from='+date+'&to='+date);
+  same(productionReport.batches.find(b=>b.batchNumber===batch2.batchNumber).input,104);
+  same(Math.round(productionReport.totals.input*1000),Math.round(productionReport.batches.reduce((s,b)=>s+b.input,0)*1000));
+  const salesReport=await get('/reports/sales?from='+date+'&to='+date);
+  const ourSales=salesReport.byCustomer.find(c=>c.customerName===customer.customerName);
+  same(ourSales.net,1040); same(ourSales.paid,1000); same(ourSales.balance,40);
+  same(salesReport.byProduct.some(p=>p.productName===bags.productName),true);
+  const receivables=await get('/reports/receivables');
+  const ourAging=receivables.byCustomer.find(c=>c.customerName===customer.customerName).aging;
+  same(ourAging.total,40); same(date<localDate?ourAging.days1To30:ourAging.notDue,40,'Invoice due on its date is aged against the server date');
+  same(Math.round(receivables.totals.total*100),Math.round(receivables.invoices.reduce((s,i)=>s+i.balance,0)*100));
+  await as(workerToken,()=>request('/reports/sales',undefined,undefined,403));
+  await as(workerToken,()=>get('/reports/production'));
+  const metrics=await get('/dashboard/metrics');
+  same(metrics.salesThisMonth>=metrics.salesToday,true,'Month sales include today');
+
   const {quantityBalance,wholeBags}=await import('../kratix-ui/src/utils/quantities.ts');
   same(quantityBalance(1000.3,1000.1,0.2),0,'Frontend decimal reconciliation');
   same(wholeBags(0.3,0.1),true,'Frontend fractional bag size');

@@ -15,6 +15,7 @@ interface DashboardMetrics {
   todayYieldPercent: number;
   pendingPOs: number;
   salesToday: number;
+  salesThisMonth: number;
   outstandingReceivables: number;
 }
 
@@ -131,6 +132,12 @@ const Dashboard: React.FC = () => {
       title: 'Sales Today',
       value: `PKR ${(metrics?.salesToday ?? 0).toLocaleString()}`,
       unit: '',
+      Icon: PaymentIcon,
+    },
+    {
+      title: 'Sales This Month',
+      value: `PKR ${(metrics?.salesThisMonth ?? 0).toLocaleString()}`,
+      unit: new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
       Icon: PaymentIcon,
     },
   ];

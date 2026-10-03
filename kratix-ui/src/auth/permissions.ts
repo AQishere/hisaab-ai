@@ -27,7 +27,13 @@ export const PAGE_ACCESS: Record<string, Role[]> = {
   '/sales-orders': SALES_FINANCE,
   '/invoices': SALES_FINANCE,
   '/payments': SALES_FINANCE,
+  '/reports': [...FLOOR, 'Sales'],
+  '/users': MANAGEMENT,
 };
+
+// Report tabs follow the same split as the API (Controllers/ReportsController.cs).
+export const canSeeOperationsReports = (role: string | undefined): boolean => FLOOR.includes(role as Role);
+export const canSeeSalesReports = (role: string | undefined): boolean => SALES_FINANCE.includes(role as Role);
 
 export const canPurchase = (role: string | undefined): boolean => PURCHASING.includes(role as Role);
 

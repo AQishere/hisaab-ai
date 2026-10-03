@@ -5,7 +5,7 @@ import client from '../api/client';
 import type { Invoice, Payment, SalesOrder } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
 import { useToast } from '../context/ToastContext';
-import { formatDate, formatMoney, getErrorMessage, todayISO } from '../utils/format';
+import { formatDate, formatMoney, getErrorMessage, todayISO, formatNumber, unitLabel } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
 import FormDialog from '../components/ui/FormDialog';
@@ -196,11 +196,16 @@ const Invoices: React.FC = () => {
           }
           onClose={() => setSelected(null)}
           actions={
-            selected.balanceRemaining > 0 && (
-              <Button variant="contained" onClick={() => setPayOpen(true)}>
-                Record payment
+            <>
+              <Button color="inherit" onClick={() => window.open(`/invoices/${selected.invoiceID}/print`, '_blank')}>
+                Print / PDF
               </Button>
-            )
+              {selected.balanceRemaining > 0 && (
+                <Button variant="contained" onClick={() => setPayOpen(true)}>
+                  Record payment
+                </Button>
+              )}
+            </>
           }
         >
           <InfoGrid
@@ -232,7 +237,7 @@ const Invoices: React.FC = () => {
           <SectionTitle>Invoice items</SectionTitle>
           <DataTable rows={selected.lines} rowKey={(l) => l.invoiceLineID} emptyTitle="No item snapshots available" columns={[
             { key: 'name', label: 'Product', render: l => l.productName },
-            { key: 'qty', label: 'Quantity', render: l => `${l.quantity} ${l.unit}` },
+            { key: 'qty', label: 'Quantity', render: l => `${formatNumber(l.quantity, 3)} ${unitLabel(l.quantity, l.unit)}` },
             { key: 'rate', label: 'Rate', render: l => formatMoney(l.ratePerUnit) },
             { key: 'amount', label: 'Amount', render: l => formatMoney(l.totalAmount) },
             { key: 'legacy', label: 'Source', render: l => l.isLegacySnapshot ? 'Reconstructed from legacy order' : 'Recorded at invoicing' },

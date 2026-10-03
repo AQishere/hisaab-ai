@@ -6,8 +6,14 @@ export const formatNumber = (value: number | null | undefined, maxDecimals = 2) 
 export const formatMoney = (value: number | null | undefined) =>
   value == null ? '-' : `PKR ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
+// A bare YYYY-MM-DD is a calendar date: read it as local midnight, not UTC, so it never shifts a day.
 export const formatDate = (value: string | null | undefined) =>
-  value ? new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+  value
+    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+    : '-';
+
+// "1 bag", "5 bags", "5 kg" (kg never takes an s).
+export const unitLabel = (quantity: number, unit: string) => (unit === 'kg' || Math.abs(quantity) === 1 ? unit : `${unit}s`);
 
 export const formatDateTime = (value: string | null | undefined) =>
   value
@@ -23,6 +29,7 @@ export function getErrorMessage(err: unknown, fallback = 'Something went wrong. 
   if (!isAxiosError(err)) return fallback;
   if (!err.response) return 'Cannot reach the server. Check that the backend is running.';
   if (err.response.status === 403) return 'Your account does not have permission to do this.';
+  if (err.response.status === 429) return 'Too many sign-in attempts. Wait a minute and try again.';
   if (err.response.status >= 500) return fallback;
 
   const data = err.response.data as unknown;

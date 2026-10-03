@@ -67,6 +67,12 @@ public class DashboardController : ControllerBase
                 .Where(s => s.SODate.Date == DateTime.Today && s.Status != "Cancelled")
                 .SumAsync(s => (decimal?)s.TotalAmount) ?? 0;
 
+            var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            var salesThisMonth = await _context.SalesOrders
+                .AsNoTracking()
+                .Where(s => s.SODate >= monthStart && s.SODate < monthStart.AddMonths(1) && s.Status != "Cancelled")
+                .SumAsync(s => (decimal?)s.TotalAmount) ?? 0;
+
             var invoicedOpen = await _context.Invoices
                 .AsNoTracking()
                 .Where(i => i.Status != "Paid")
@@ -85,6 +91,7 @@ public class DashboardController : ControllerBase
                 TodayYieldPercent = todayYield,
                 PendingPOs = pendingPOs,
                 SalesToday = salesToday,
+                SalesThisMonth = salesThisMonth,
                 OutstandingReceivables = outstandingReceivables,
             };
 

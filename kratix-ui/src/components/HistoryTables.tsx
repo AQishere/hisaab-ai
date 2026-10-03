@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material';
 import { useFetch } from '../hooks/useFetch';
-import { formatDateTime, formatNumber } from '../utils/format';
+import { formatDateTime, formatNumber, unitLabel } from '../utils/format';
 import DataTable from './ui/DataTable';
 import { SectionTitle } from './ui/DetailDialog';
 
@@ -9,7 +9,6 @@ const MOVEMENT_LABELS: Record<string, string> = {
   ProductionReversal: 'Production reversal', ProductionOutput: 'Production output', LegacyBulkOpening: 'Bulk location recorded',
   PackingBulk: 'Packed (bulk used)', PackingSupply: 'Packed (empty bags used)', PackingOutput: 'Packed (bags added)', Dispatch: 'Dispatch',
 };
-const unitLabel = (quantity: number, unit: string) => (unit === 'kg' || Math.abs(quantity) === 1 ? unit : `${unit}s`);
 
 export function StockHistory({ inventoryID }: { inventoryID: number }) {
   const rows = useFetch<{ stockMovementID: number; recordedAt: string; movementType: string; reference: string; quantityChange: number; unit: string; reason: string | null }[]>(`/inventory/${inventoryID}/movements`);

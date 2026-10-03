@@ -50,8 +50,9 @@ public class SalesOrdersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SalesOrderDTO>> Create(CreateSalesOrderDTO dto)
     {
-        if (dto.LineItems == null || dto.LineItems.Count == 0 || dto.LineItems.Any(i => !BusinessRules.Quantity(i.Quantity) || !BusinessRules.Money(i.RatePerUnit) || !BusinessRules.Money(BusinessRules.Amount(i.Quantity, i.RatePerUnit), true)))
-            return BadRequest("Add at least one line with positive quantities (up to 3 decimals) and rates (up to 2 decimals).");
+        var (lines, error) = await BuildLines(dto.LineItems);
+        if (error != null)
+            return BadRequest(error);
         var customer = await context.Customers.FindAsync(dto.CustomerID);
         if (customer == null || !customer.IsActive)
             return BadRequest("Customer not found");
@@ -69,33 +70,9 @@ public class SalesOrdersController : ControllerBase
             CreatedDate = DateTime.Now
         };
 
-        decimal totalAmount = 0;
-        foreach (var item in dto.LineItems)
-        {
-            var product = await context.Products.FindAsync(item.ProductID);
-            if (product == null)
-                return BadRequest($"Product {item.ProductID} not found");
-
-            if (product.Category != "Finished Good" && product.Category != "By-product")
-                return BadRequest("Only finished goods and by-products can be sold.");
-            if (product.Unit == "bag" && item.Quantity != decimal.Truncate(item.Quantity))
-                return BadRequest("Order a whole number of bags.");
-            var lineItem = new SOLineItem
-            {
-                ProductID = item.ProductID,
-                Quantity = item.Quantity,
-                RatePerUnit = item.RatePerUnit,
-                TotalAmount = BusinessRules.Amount(item.Quantity, item.RatePerUnit),
-                DispatchedQuantity = 0,
-                DispatchStatus = "NotDispatched"
-            };
-
-            order.SOLineItems.Add(lineItem);
-            totalAmount += lineItem.TotalAmount;
-        }
-
-        if (!BusinessRules.Money(totalAmount, true)) return BadRequest("Order total is too large.");
-        order.TotalAmount = totalAmount;
+        foreach (var line in lines!)
+            order.SOLineItems.Add(line);
+        order.TotalAmount = lines!.Sum(l => l.TotalAmount);
         context.SalesOrders.Add(order);
         await context.SaveChangesAsync();
 
@@ -173,6 +150,42 @@ public class SalesOrdersController : ControllerBase
         return NoContent();
     }
 
+    // Editable until the first truck leaves; after that the order is history.
+    [HttpPut("{id}/details")]
+    public async Task<ActionResult<SalesOrderDTO>> UpdateDetails(int id, CreateSalesOrderDTO dto)
+    {
+        var order = await context.SalesOrders.Include(so => so.SOLineItems).FirstOrDefaultAsync(so => so.SalesOrderID == id);
+        if (order == null)
+            return NotFound();
+
+        if (order.Status is not ("Quotation" or "Confirmed") || order.SOLineItems.Any(li => li.DispatchedQuantity > 0) ||
+            await context.Dispatches.AnyAsync(d => d.SalesOrderID == id))
+            return BadRequest("Only orders with nothing dispatched can be edited.");
+
+        var (lines, error) = await BuildLines(dto.LineItems);
+        if (error != null)
+            return BadRequest(error);
+
+        var customer = await context.Customers.FindAsync(dto.CustomerID);
+        if (customer == null || !customer.IsActive)
+            return BadRequest("Customer not found");
+
+        order.CustomerID = dto.CustomerID;
+        order.SODate = dto.SODate;
+        order.ExpectedDeliveryDate = dto.ExpectedDeliveryDate;
+        context.SOLineItems.RemoveRange(order.SOLineItems);
+        foreach (var line in lines!)
+            order.SOLineItems.Add(line);
+        order.TotalAmount = lines!.Sum(l => l.TotalAmount);
+        await context.SaveChangesAsync();
+
+        var updated = await context.SalesOrders
+            .Include(so => so.Customer)
+            .Include(so => so.SOLineItems).ThenInclude(li => li.Product)
+            .FirstAsync(so => so.SalesOrderID == id);
+        return Ok(MapToDTO(updated));
+    }
+
     [HttpPut("{id}/cancel")]
     public async Task<ActionResult> Cancel(int id, ReasonDTO dto)
     {
@@ -220,6 +233,37 @@ public class SalesOrdersController : ControllerBase
                 ProductName = l.Inventory.Product!.ProductName, l.Inventory.LotNumber, Warehouse = l.Inventory.Warehouse!.WarehouseName }) }).ToListAsync());
 
     private Task<string> GenerateSONumber() => BusinessRules.NextNumber(context, "SO");
+
+    private async Task<(List<SOLineItem>? Lines, string? Error)> BuildLines(List<CreateSOLineItemDTO>? items)
+    {
+        if (items == null || items.Count == 0 || items.Any(i => !BusinessRules.Quantity(i.Quantity) || !BusinessRules.Money(i.RatePerUnit) || !BusinessRules.Money(BusinessRules.Amount(i.Quantity, i.RatePerUnit), true)))
+            return (null, "Add at least one line with positive quantities (up to 3 decimals) and rates (up to 2 decimals).");
+
+        var lines = new List<SOLineItem>();
+        foreach (var item in items)
+        {
+            var product = await context.Products.FindAsync(item.ProductID);
+            if (product == null)
+                return (null, $"Product {item.ProductID} not found");
+
+            if (product.Category != "Finished Good" && product.Category != "By-product")
+                return (null, "Only finished goods and by-products can be sold.");
+            if (product.Unit == "bag" && item.Quantity != decimal.Truncate(item.Quantity))
+                return (null, "Order a whole number of bags.");
+            lines.Add(new SOLineItem
+            {
+                ProductID = item.ProductID,
+                Quantity = item.Quantity,
+                RatePerUnit = item.RatePerUnit,
+                TotalAmount = BusinessRules.Amount(item.Quantity, item.RatePerUnit),
+                DispatchedQuantity = 0,
+                DispatchStatus = "NotDispatched"
+            });
+        }
+        if (!BusinessRules.Money(lines.Sum(l => l.TotalAmount), true))
+            return (null, "Order total is too large.");
+        return (lines, null);
+    }
 
     private SalesOrderDTO MapToDTO(SalesOrder so)
     {

@@ -28,10 +28,14 @@ import {
   Menu as MenuIcon,
   Logout as LogoutIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
+  Assessment as AssessmentIcon,
+  ManageAccounts as ManageAccountsIcon,
+  Key as KeyIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import BrandLogo from './BrandLogo';
+import ChangePasswordDialog from './ChangePasswordDialog';
 import { canAccess, ROLE_LABELS, type Role } from '../auth/permissions';
 
 const DRAWER_WIDTH = 256;
@@ -55,6 +59,9 @@ const menuItems: NavItem[] = [
   { label: 'Sales Orders', path: '/sales-orders', icon: <ShoppingCartIcon /> },
   { label: 'Invoices', path: '/invoices', icon: <ReceiptIcon /> },
   { label: 'Payments', path: '/payments', icon: <PaymentIcon /> },
+  { label: 'Insights & Admin', section: true },
+  { label: 'Reports', path: '/reports', icon: <AssessmentIcon /> },
+  { label: 'Users', path: '/users', icon: <ManageAccountsIcon /> },
 ];
 
 const Layout: React.FC = () => {
@@ -63,6 +70,7 @@ const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const visibleItems = menuItems.filter((item, idx) => {
     if (!('section' in item)) return canAccess(user?.role, item.path);
@@ -216,6 +224,9 @@ const Layout: React.FC = () => {
                 <Typography sx={{ fontSize: '12px', color: 'text.secondary' }}>{roleLabel}</Typography>
               </Box>
               <Divider />
+              <MenuItem onClick={() => { setAnchorEl(null); setChangingPassword(true); }} sx={{ fontSize: '13px' }}>
+                <KeyIcon sx={{ mr: 1, fontSize: '18px' }} /> Change password
+              </MenuItem>
               <MenuItem onClick={handleLogout} sx={{ fontSize: '13px', color: 'error.main' }}>
                 <LogoutIcon sx={{ mr: 1, fontSize: '18px' }} /> Logout
               </MenuItem>
@@ -255,6 +266,8 @@ const Layout: React.FC = () => {
       >
         {drawerContent}
       </Drawer>
+
+      <ChangePasswordDialog open={changingPassword} onClose={() => setChangingPassword(false)} />
 
       <Box component="main" sx={{ flex: 1, minWidth: 0, mt: `${APPBAR_HEIGHT}px`, overflow: 'auto' }}>
         <Box sx={{ p: 3, maxWidth: '1600px', mx: 'auto' }}>

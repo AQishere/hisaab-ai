@@ -17,6 +17,8 @@ const read = (key: string) => safe(() => sessionStorage.getItem(key) ?? localSto
 export const session = {
   token: () => read(TOKEN),
 
+  isRemembered: () => safe(() => localStorage.getItem(TOKEN) !== null, false),
+
   user: <T>(): T | null => {
     const raw = read(USER);
     return raw ? safe(() => JSON.parse(raw) as T, null) : null;

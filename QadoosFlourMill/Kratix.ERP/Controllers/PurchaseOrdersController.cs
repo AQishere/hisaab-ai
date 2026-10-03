@@ -51,8 +51,9 @@ public class PurchaseOrdersController : ControllerBase
     [Authorize(Policy = Policies.Purchasing)]
     public async Task<ActionResult<PurchaseOrderDTO>> Create(CreatePurchaseOrderDTO dto)
     {
-        if (dto.LineItems == null || dto.LineItems.Count == 0 || dto.LineItems.Any(i => !BusinessRules.Quantity(i.Quantity) || !BusinessRules.Money(i.RatePerUnit) || !BusinessRules.Money(BusinessRules.Amount(i.Quantity, i.RatePerUnit), true)))
-            return BadRequest("Add at least one line with positive quantities (up to 3 decimals) and rates (up to 2 decimals).");
+        var (lines, error) = await BuildLines(dto.LineItems);
+        if (error != null)
+            return BadRequest(error);
         var supplier = await context.Suppliers.FindAsync(dto.SupplierID);
         if (supplier == null || !supplier.IsActive)
             return BadRequest("Supplier not found");
@@ -70,27 +71,8 @@ public class PurchaseOrdersController : ControllerBase
             CreatedDate = DateTime.Now
         };
 
-        foreach (var item in dto.LineItems)
-        {
-            var product = await context.Products.FindAsync(item.ProductID);
-            if (product == null)
-                return BadRequest($"Product {item.ProductID} not found");
-
-            if (!((product.Category == "Raw Material" && product.Unit == "kg") || (product.Category == "Packaging" && product.Unit == "piece")))
-                return BadRequest("Purchase raw materials in kg or packaging in pieces.");
-            if (product.Unit == "piece" && item.Quantity != decimal.Truncate(item.Quantity))
-                return BadRequest("Packaging quantities must be whole pieces.");
-            var lineItem = new POLineItem
-            {
-                ProductID = item.ProductID,
-                Quantity = item.Quantity,
-                RatePerUnit = item.RatePerUnit,
-                TotalAmount = BusinessRules.Amount(item.Quantity, item.RatePerUnit),
-                ReceivedQuantity = 0
-            };
-
-            order.POLineItems.Add(lineItem);
-        }
+        foreach (var line in lines!)
+            order.POLineItems.Add(line);
 
         context.PurchaseOrders.Add(order);
         await context.SaveChangesAsync();
@@ -126,6 +108,42 @@ public class PurchaseOrdersController : ControllerBase
 
         await context.SaveChangesAsync();
         return NoContent();
+    }
+
+    // Drafts can be corrected freely; once sent, the supplier has the order and it is locked.
+    [HttpPut("{id}/details")]
+    [Authorize(Policy = Policies.Purchasing)]
+    public async Task<ActionResult<PurchaseOrderDTO>> UpdateDetails(int id, CreatePurchaseOrderDTO dto)
+    {
+        var order = await context.PurchaseOrders.Include(po => po.POLineItems).FirstOrDefaultAsync(po => po.POID == id);
+        if (order == null)
+            return NotFound();
+
+        if (order.Status != "Draft")
+            return BadRequest("Only draft orders can be edited.");
+
+        var (lines, error) = await BuildLines(dto.LineItems);
+        if (error != null)
+            return BadRequest(error);
+
+        var supplier = await context.Suppliers.FindAsync(dto.SupplierID);
+        if (supplier == null || !supplier.IsActive)
+            return BadRequest("Supplier not found");
+
+        order.SupplierID = dto.SupplierID;
+        order.PODate = dto.PODate;
+        order.ExpectedDeliveryDate = dto.ExpectedDeliveryDate;
+        order.LastModifiedDate = DateTime.Now;
+        context.POLineItems.RemoveRange(order.POLineItems);
+        foreach (var line in lines!)
+            order.POLineItems.Add(line);
+        await context.SaveChangesAsync();
+
+        var updated = await context.PurchaseOrders
+            .Include(po => po.Supplier)
+            .Include(po => po.POLineItems).ThenInclude(li => li.Product)
+            .FirstAsync(po => po.POID == id);
+        return Ok(MapToDTO(updated));
     }
 
     [HttpPut("{id}/close")]
@@ -174,6 +192,34 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     private Task<string> GeneratePONumber() => BusinessRules.NextNumber(context, "PO");
+
+    private async Task<(List<POLineItem>? Lines, string? Error)> BuildLines(List<CreatePOLineItemDTO>? items)
+    {
+        if (items == null || items.Count == 0 || items.Any(i => !BusinessRules.Quantity(i.Quantity) || !BusinessRules.Money(i.RatePerUnit) || !BusinessRules.Money(BusinessRules.Amount(i.Quantity, i.RatePerUnit), true)))
+            return (null, "Add at least one line with positive quantities (up to 3 decimals) and rates (up to 2 decimals).");
+
+        var lines = new List<POLineItem>();
+        foreach (var item in items)
+        {
+            var product = await context.Products.FindAsync(item.ProductID);
+            if (product == null)
+                return (null, $"Product {item.ProductID} not found");
+
+            if (!((product.Category == "Raw Material" && product.Unit == "kg") || (product.Category == "Packaging" && product.Unit == "piece")))
+                return (null, "Purchase raw materials in kg or packaging in pieces.");
+            if (product.Unit == "piece" && item.Quantity != decimal.Truncate(item.Quantity))
+                return (null, "Packaging quantities must be whole pieces.");
+            lines.Add(new POLineItem
+            {
+                ProductID = item.ProductID,
+                Quantity = item.Quantity,
+                RatePerUnit = item.RatePerUnit,
+                TotalAmount = BusinessRules.Amount(item.Quantity, item.RatePerUnit),
+                ReceivedQuantity = 0
+            });
+        }
+        return (lines, null);
+    }
 
     private PurchaseOrderDTO MapToDTO(PurchaseOrder po)
     {

@@ -203,3 +203,55 @@ export interface Payment {
   reference: string;
   createdDate: string;
 }
+
+export interface UserAccount {
+  userID: number;
+  username: string;
+  email: string | null;
+  role: string;
+  isActive: boolean;
+  createdDate: string;
+}
+
+export interface StockReportRow {
+  productCode: string;
+  productName: string;
+  category: string;
+  stockForm: string;
+  unit: string;
+  opening: number;
+  received: number;
+  produced: number;
+  used: number;
+  dispatched: number;
+  closing: number;
+}
+
+export interface ProductionReport {
+  totals: { batches: number; input: number; output: number; waste: number; yield: number };
+  daily: { date: string; batches: number; input: number; output: number; waste: number; yield: number }[];
+  batches: { batchNumber: string; productionDate: string; shiftNumber: number; operatorName: string | null; input: number; output: number; waste: number; yield: number }[];
+  outputs: { productName: string; materialType: string; quantityKg: number }[];
+}
+
+export interface SalesReport {
+  totals: { invoices: number; subtotal: number; tax: number; net: number; paid: number; balance: number };
+  byCustomer: { customerName: string; invoices: number; net: number; paid: number; balance: number }[];
+  byProduct: { productName: string; unit: string; quantity: number; amount: number }[];
+  invoices: { invoiceNumber: string; invoiceDate: string; customerName: string; status: string; netAmount: number; paid: number; balance: number }[];
+}
+
+export interface Aging {
+  notDue: number;
+  days1To30: number;
+  days31To60: number;
+  days61Plus: number;
+  total: number;
+}
+
+export interface ReceivablesReport {
+  asOf: string;
+  totals: Aging;
+  byCustomer: { customerName: string; invoices: number; aging: Aging }[];
+  invoices: { invoiceNumber: string; invoiceDate: string; dueDate: string | null; customerName: string; netAmount: number; balance: number; daysOverdue: number; bucket: string }[];
+}

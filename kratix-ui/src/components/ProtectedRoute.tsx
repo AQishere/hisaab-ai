@@ -6,9 +6,11 @@ import { canAccess, homePath } from '../auth/permissions';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  // Page whose access rule applies, for routes with parameters (e.g. /invoices/5/print uses /invoices).
+  accessPath?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, accessPath }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
@@ -24,7 +26,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!canAccess(user?.role, location.pathname)) {
+  if (!canAccess(user?.role, accessPath ?? location.pathname)) {
     const home = homePath(user?.role);
     return <Navigate to={home === location.pathname ? '/login' : home} replace />;
   }

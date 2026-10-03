@@ -8,5 +8,6 @@ public class DashboardMetricsDto
     public decimal TodayYieldPercent { get; set; }
     public int PendingPOs { get; set; }
     public decimal SalesToday { get; set; }
+    public decimal SalesThisMonth { get; set; }
     public decimal OutstandingReceivables { get; set; }
 }

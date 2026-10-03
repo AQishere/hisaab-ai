@@ -25,6 +25,7 @@ const PurchaseOrders: React.FC = () => {
 
   const [statusFilter, setStatusFilter] = useState('All');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [supplierID, setSupplierID] = useState('');
   const [poDate, setPoDate] = useState(todayISO());
   const [expected, setExpected] = useState('');
@@ -42,6 +43,7 @@ const PurchaseOrders: React.FC = () => {
   );
 
   const openCreate = () => {
+    setEditing(null);
     setSupplierID('');
     setPoDate(todayISO());
     setExpected('');
@@ -50,17 +52,29 @@ const PurchaseOrders: React.FC = () => {
     setCreateOpen(true);
   };
 
+  const openEdit = (po: PurchaseOrder) => {
+    setEditing(po);
+    setSupplierID(String(po.supplierID));
+    setPoDate(po.poDate.slice(0, 10));
+    setExpected(po.expectedDeliveryDate?.slice(0, 10) ?? '');
+    setLines(po.lineItems.map((l) => ({ productID: String(l.productID), quantity: String(l.quantity), ratePerUnit: String(l.ratePerUnit) })));
+    setFormError('');
+    setSelected(null);
+    setCreateOpen(true);
+  };
+
   const create = async () => {
     setSaving(true);
     setFormError('');
+    const body = { supplierID: Number(supplierID), poDate, expectedDeliveryDate: expected || null, lineItems: toLinePayload(lines) };
     try {
-      const res = await client.post<PurchaseOrder>('/purchaseorders', {
-        supplierID: Number(supplierID),
-        poDate,
-        expectedDeliveryDate: expected || null,
-        lineItems: toLinePayload(lines),
-      });
-      toast(`${res.data.poNumber} created as draft`);
+      if (editing) {
+        const res = await client.put<PurchaseOrder>(`/purchaseorders/${editing.poid}/details`, body);
+        toast(`${res.data.poNumber} updated`);
+      } else {
+        const res = await client.post<PurchaseOrder>('/purchaseorders', body);
+        toast(`${res.data.poNumber} created as draft`);
+      }
       setCreateOpen(false);
       orders.reload();
     } catch (err) {
@@ -151,8 +165,8 @@ const PurchaseOrders: React.FC = () => {
 
       <FormDialog
         open={createOpen}
-        title="New purchase order"
-        submitLabel="Create draft"
+        title={editing ? `Edit ${editing.poNumber}` : 'New purchase order'}
+        submitLabel={editing ? 'Save changes' : 'Create draft'}
         maxWidth="md"
         submitting={saving}
         submitDisabled={!supplierID || !poDate || !linesValid(lines)}
@@ -218,6 +232,11 @@ const PurchaseOrders: React.FC = () => {
               {(selected.status === 'Draft' || selected.status === 'Sent') && (
                 <Button color="inherit" disabled={busy} onClick={() => setStatus(selected, 'Cancelled')}>
                   Cancel order
+                </Button>
+              )}
+              {selected.status === 'Draft' && (
+                <Button color="inherit" disabled={busy} onClick={() => openEdit(selected)}>
+                  Edit
                 </Button>
               )}
               {selected.status === 'Draft' && (

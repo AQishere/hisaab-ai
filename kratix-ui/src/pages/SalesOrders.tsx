@@ -22,6 +22,7 @@ const SalesOrders: React.FC = () => {
   const toast = useToast();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [ending, setEnding] = useState<'cancel' | 'close' | null>(null);
   const [customerID, setCustomerID] = useState('');
   const [soDate, setSoDate] = useState(todayISO());
@@ -42,6 +43,7 @@ const SalesOrders: React.FC = () => {
   const remaining = dispatching ? dispatching.quantity - dispatching.dispatchedQuantity : 0;
 
   const openCreate = () => {
+    setEditing(null);
     setCustomerID('');
     setSoDate(todayISO());
     setExpected('');
@@ -50,17 +52,29 @@ const SalesOrders: React.FC = () => {
     setCreateOpen(true);
   };
 
+  const openEdit = (so: SalesOrder) => {
+    setEditing(so);
+    setCustomerID(String(so.customerID));
+    setSoDate(so.soDate.slice(0, 10));
+    setExpected(so.expectedDeliveryDate?.slice(0, 10) ?? '');
+    setLines(so.lineItems.map((l) => ({ productID: String(l.productID), quantity: String(l.quantity), ratePerUnit: String(l.ratePerUnit) })));
+    setFormError('');
+    setSelected(null);
+    setCreateOpen(true);
+  };
+
   const create = async () => {
     setSaving(true);
     setFormError('');
+    const body = { customerID: Number(customerID), soDate, expectedDeliveryDate: expected || null, lineItems: toLinePayload(lines) };
     try {
-      const res = await client.post<SalesOrder>('/salesorders', {
-        customerID: Number(customerID),
-        soDate,
-        expectedDeliveryDate: expected || null,
-        lineItems: toLinePayload(lines),
-      });
-      toast(`${res.data.soNumber} created`);
+      if (editing) {
+        const res = await client.put<SalesOrder>(`/salesorders/${editing.salesOrderID}/details`, body);
+        toast(`${res.data.soNumber} updated`);
+      } else {
+        const res = await client.post<SalesOrder>('/salesorders', body);
+        toast(`${res.data.soNumber} created`);
+      }
       setCreateOpen(false);
       orders.reload();
     } catch (err) {
@@ -124,8 +138,8 @@ const SalesOrders: React.FC = () => {
 
       <FormDialog
         open={createOpen}
-        title="New sales order"
-        submitLabel="Create order"
+        title={editing ? `Edit ${editing.soNumber}` : 'New sales order'}
+        submitLabel={editing ? 'Save changes' : 'Create order'}
         maxWidth="md"
         submitting={saving}
         submitDisabled={!customerID || !soDate || !linesValid(lines)}
@@ -190,7 +204,10 @@ const SalesOrders: React.FC = () => {
           actions={
             <>
               {['Quotation', 'Confirmed'].includes(selected.status) && selected.lineItems.every((l) => l.dispatchedQuantity === 0) && (
-                <Button color="inherit" onClick={() => setEnding('cancel')}>Cancel order</Button>
+                <>
+                  <Button color="inherit" onClick={() => openEdit(selected)}>Edit</Button>
+                  <Button color="inherit" onClick={() => setEnding('cancel')}>Cancel order</Button>
+                </>
               )}
               {selected.status === 'PartiallyDispatched' && (
                 <Button color="inherit" onClick={() => setEnding('close')}>Close short</Button>

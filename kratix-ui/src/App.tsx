@@ -17,6 +17,9 @@ import Inventory from './pages/Inventory';
 import SalesOrders from './pages/SalesOrders';
 import Invoices from './pages/Invoices';
 import Payments from './pages/Payments';
+import Reports from './pages/Reports';
+import Users from './pages/Users';
+import InvoicePrint from './pages/InvoicePrint';
 import { ToastProvider } from './context/ToastContext';
 import { TOKENS } from './styles/tokens';
 
@@ -175,7 +178,17 @@ function App() {
               <Route path="/sales-orders" element={<SalesOrders />} />
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/payments" element={<Payments />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/users" element={<Users />} />
             </Route>
+            <Route
+              path="/invoices/:id/print"
+              element={
+                <ProtectedRoute accessPath="/invoices">
+                  <InvoicePrint />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

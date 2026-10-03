@@ -6,6 +6,7 @@ ERP for a flour mill: purchasing, gate entry and weighbridge, quality check, sto
 - `kratix-ui/` - frontend (React 19, TypeScript, Vite, Material UI)
 - `PROGRESS.md` - what has been built, open issues and the roadmap
 - `DATABASE_UPGRADE.md` - backing up, pre-checking and upgrading an existing database
+- `DEPLOYMENT.md` - running it on a server for real users (settings, HTTPS, first admin)
 
 ## Requirements
 
@@ -28,7 +29,8 @@ Edit `appsettings.Development.json`:
 
 - `Jwt:Key` - a random string of at least 32 characters, used to sign login tokens. For example:
   `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`
-- `DemoUsers` - a password for each demo account (`owner`, `admin`, `operations`, `sales`, `worker`). Accounts are created on first start; accounts with an empty password are skipped.
+- `DemoUsers` - a password for each demo account (`owner`, `admin`, `operations`, `sales`, `worker`). Accounts are created on first start in Development only; accounts with an empty password are skipped.
+- `Cors:AllowedOrigins` - website addresses allowed to call the API. The example lists the local dev server (`http://localhost:5173`) and the test port 3000.
 
 ### 2. Frontend demo accounts (optional)
 
@@ -39,7 +41,9 @@ cd kratix-ui/src/config
 cp demoAccounts.example.ts demoAccounts.local.ts
 ```
 
-Fill in the same passwords as in `DemoUsers`. Without this file the buttons are simply hidden.
+Fill in the same passwords as in `DemoUsers`. Without this file the buttons are simply hidden. They only ever appear in development (`npm run dev`); a production build (`npm run build`) contains neither the buttons nor the passwords.
+
+The mill's address, phone, email and NTN printed on invoices are in `kratix-ui/src/config/company.ts`.
 
 ## Run
 
