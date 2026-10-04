@@ -32,7 +32,7 @@ import {
   ManageAccounts as ManageAccountsIcon,
   Key as KeyIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import ThemeToggle from './ThemeToggle';
 import BrandLogo from './BrandLogo';
 import ChangePasswordDialog from './ChangePasswordDialog';

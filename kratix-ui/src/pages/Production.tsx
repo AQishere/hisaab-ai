@@ -6,7 +6,7 @@ import { quantityBalance, wholeBags } from '../utils/quantities';
 import { PackingHistory } from '../components/HistoryTables';
 import type { BatchMaterial, InventoryItem, Product, ProductionBatch, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { formatDate, formatNumber, getErrorMessage, todayISO } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';

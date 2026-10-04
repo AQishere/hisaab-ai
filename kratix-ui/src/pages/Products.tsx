@@ -1,7 +1,7 @@
 import CrudPage, { type CrudConfig } from '../components/CrudPage';
 import type { Product } from '../api/types';
 
-export const PRODUCT_CATEGORIES = ['Raw Material', 'Finished Good', 'By-product', 'Packaging', 'Waste'];
+const PRODUCT_CATEGORIES = ['Raw Material', 'Finished Good', 'By-product', 'Packaging', 'Waste'];
 
 const config: CrudConfig<Product> = {
   title: 'Products',

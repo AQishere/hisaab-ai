@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Alert, CircularProgress, Tooltip, Checkbox, FormControlLabel } from '@mui/material';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
 import ThemeToggle from '../components/ThemeToggle';
 import LoginIllustration from '../components/LoginIllustration';

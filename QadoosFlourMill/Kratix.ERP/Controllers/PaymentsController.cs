@@ -89,7 +89,7 @@ public class PaymentsController : ControllerBase
 
         var createdPayment = await context.Payments
             .Include(p => p.Invoice)
-            .FirstOrDefaultAsync(p => p.PaymentID == payment.PaymentID);
+            .SingleAsync(p => p.PaymentID == payment.PaymentID);
 
         return CreatedAtAction(nameof(GetById), new { id = payment.PaymentID }, MapToDTO(createdPayment));
     }

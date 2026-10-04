@@ -3,7 +3,7 @@ import { Box, Button, GlobalStyles, Paper, Tab, Tabs, TextField, Typography } fr
 import { Download as DownloadIcon, Print as PrintIcon } from '@mui/icons-material';
 import type { ProductionReport, ReceivablesReport, SalesReport, StockReportRow } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { canSeeOperationsReports, canSeeSalesReports } from '../auth/permissions';
 import { formatDate, formatMoney, formatNumber, todayISO, unitLabel } from '../utils/format';
 import { downloadCsv } from '../utils/csv';
@@ -23,8 +23,13 @@ const TABS: { kind: ReportKind; label: string; operations: boolean }[] = [
 const printStyles = (
   <GlobalStyles styles={{
     '@media print': {
+      '@page': { size: 'A4 landscape', margin: '12mm' },
       '.MuiDrawer-root, .MuiAppBar-root, .no-print': { display: 'none !important' },
-      'main': { marginTop: '0 !important' },
+      'main': { marginTop: '0 !important', overflow: 'visible !important' },
+      '.MuiTableContainer-root': { overflow: 'visible !important' },
+      'table': { minWidth: '0 !important', width: '100% !important' },
+      'th': { whiteSpace: 'normal !important' },
+      'tr': { breakInside: 'avoid' },
       'body, body *': { color: '#000 !important', backgroundColor: 'transparent !important', boxShadow: 'none !important' },
     },
   }} />
@@ -62,6 +67,8 @@ const Reports: React.FC = () => {
   const production = useFetch<ProductionReport>(kind === 'production' && validPeriod ? `/reports/production?${period}` : null);
   const sales = useFetch<SalesReport>(kind === 'sales' && validPeriod ? `/reports/sales?${period}` : null);
   const receivables = useFetch<ReceivablesReport>(kind === 'receivables' ? '/reports/receivables' : null);
+  const activeReport = { stock, production, sales, receivables }[kind];
+  const exportReady = !!activeReport.data && !activeReport.loading && !activeReport.error && (kind === 'receivables' || validPeriod);
 
   const suffix = kind === 'receivables' ? todayISO() : `${from}-to-${to}`;
   const exportCsv = () => {
@@ -87,8 +94,8 @@ const Reports: React.FC = () => {
       <PageHeader title="Reports" subtitle="Stock, production, sales and money owed, for any period"
         actions={
           <Box className="no-print" sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportCsv}>CSV</Button>
-            <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>Print</Button>
+            <Button variant="outlined" startIcon={<DownloadIcon />} disabled={!exportReady} onClick={exportCsv}>CSV</Button>
+            <Button variant="outlined" startIcon={<PrintIcon />} disabled={!exportReady} onClick={() => window.print()}>Print</Button>
           </Box>
         } />
 

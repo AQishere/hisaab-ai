@@ -1,27 +1,30 @@
+import { lazy, Suspense } from 'react';
+import { Box, CircularProgress } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Suppliers from './pages/Suppliers';
-import Customers from './pages/Customers';
-import Products from './pages/Products';
-import Warehouses from './pages/Warehouses';
-import PurchaseOrders from './pages/PurchaseOrders';
-import InboundReceipts from './pages/InboundReceipts';
-import Production from './pages/Production';
-import Inventory from './pages/Inventory';
-import SalesOrders from './pages/SalesOrders';
-import Invoices from './pages/Invoices';
-import Payments from './pages/Payments';
-import Reports from './pages/Reports';
-import Users from './pages/Users';
-import InvoicePrint from './pages/InvoicePrint';
 import { ToastProvider } from './context/ToastContext';
 import { TOKENS } from './styles/tokens';
+
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
+const Customers = lazy(() => import('./pages/Customers'));
+const Products = lazy(() => import('./pages/Products'));
+const Warehouses = lazy(() => import('./pages/Warehouses'));
+const PurchaseOrders = lazy(() => import('./pages/PurchaseOrders'));
+const InboundReceipts = lazy(() => import('./pages/InboundReceipts'));
+const Production = lazy(() => import('./pages/Production'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const SalesOrders = lazy(() => import('./pages/SalesOrders'));
+const Invoices = lazy(() => import('./pages/Invoices'));
+const Payments = lazy(() => import('./pages/Payments'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Users = lazy(() => import('./pages/Users'));
+const InvoicePrint = lazy(() => import('./pages/InvoicePrint'));
 
 // Yellow fails contrast as text on white, so accent-coloured text uses dark gold in light mode.
 const ACCENT_VARS = {
@@ -157,6 +160,7 @@ function App() {
       <Router>
         <AuthProvider>
           <ToastProvider>
+          <Suspense fallback={<Box role="status" aria-label="Loading page" sx={{ p: 4 }}><CircularProgress /></Box>}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route
@@ -192,6 +196,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
           </ToastProvider>
         </AuthProvider>
       </Router>

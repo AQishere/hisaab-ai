@@ -72,7 +72,7 @@ public class ProductionBatchesController : ControllerBase
         var createdBatch = await context.ProductionBatches
             .Include(pb => pb.BatchMaterials)
             .ThenInclude(bm => bm.Product)
-            .FirstOrDefaultAsync(pb => pb.BatchID == batch.BatchID);
+            .SingleAsync(pb => pb.BatchID == batch.BatchID);
 
         return CreatedAtAction(nameof(GetById), new { id = batch.BatchID }, MapToDTO(createdBatch));
     }
@@ -385,7 +385,7 @@ public class ProductionBatchesController : ControllerBase
             TotalWasteQuantity = pb.TotalWasteQuantity,
             YieldPercentage = pb.YieldPercentage,
             OperatorName = pb.OperatorName,
-            Materials = pb.BatchMaterials?.Select(bm => new BatchMaterialDTO
+            Materials = pb.BatchMaterials.Select(bm => new BatchMaterialDTO
             {
                 BatchMaterialID = bm.BatchMaterialID,
                 ProductID = bm.ProductID,

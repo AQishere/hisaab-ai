@@ -7,8 +7,8 @@ public class InventoryDTO
     public int ProductID { get; set; }
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
-    public string Unit { get; set; } = string.Empty;
+    public string? Category { get; set; }
+    public string? Unit { get; set; }
     public int WarehouseID { get; set; }
     public string WarehouseName { get; set; } = string.Empty;
     public string? BinCode { get; set; }

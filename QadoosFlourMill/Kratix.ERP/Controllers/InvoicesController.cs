@@ -94,7 +94,7 @@ public class InvoicesController : ControllerBase
             invoice.Lines.Add(new InvoiceLine
             {
                 ProductID = line.ProductID, ProductCode = line.Product!.ProductCode,
-                ProductName = line.Product.ProductName, Unit = line.Product.Unit, KgPerBag = line.Product.KgPerBag,
+                ProductName = line.Product.ProductName, Unit = line.Product.Unit ?? throw new InvalidOperationException("The invoiced product has no unit."), KgPerBag = line.Product.KgPerBag,
                 Quantity = line.DispatchedQuantity, RatePerUnit = line.RatePerUnit, TotalAmount = amount
             });
 
@@ -107,7 +107,7 @@ public class InvoicesController : ControllerBase
             .Include(i => i.SalesOrder)
             .Include(i => i.Payments)
             .Include(i => i.Lines)
-            .FirstOrDefaultAsync(i => i.InvoiceID == invoice.InvoiceID);
+            .SingleAsync(i => i.InvoiceID == invoice.InvoiceID);
 
         return CreatedAtAction(nameof(GetById), new { id = invoice.InvoiceID }, MapToDTO(createdInvoice));
     }

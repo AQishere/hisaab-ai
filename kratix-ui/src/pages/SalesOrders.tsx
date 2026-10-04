@@ -6,14 +6,15 @@ import { DispatchHistory } from '../components/HistoryTables';
 import ReasonDialog from '../components/ReasonDialog';
 import type { Customer, Product, SalesOrder, SOLineItem } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { formatDate, formatMoney, formatNumber, getErrorMessage, todayISO } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
 import FormDialog from '../components/ui/FormDialog';
 import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
-import LineItemsEditor, { emptyLine, lineTotal, linesValid, toLinePayload, type LineDraft } from '../components/LineItemsEditor';
+import LineItemsEditor from '../components/LineItemsEditor';
+import { emptyLine, lineTotal, linesValid, toLinePayload, type LineDraft } from '../utils/lineItems';
 
 const SalesOrders: React.FC = () => {
   const orders = useFetch<SalesOrder[]>('/salesorders');

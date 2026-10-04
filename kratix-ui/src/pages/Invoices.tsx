@@ -4,7 +4,7 @@ import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
 import type { Invoice, Payment, SalesOrder } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { formatDate, formatMoney, getErrorMessage, todayISO, formatNumber, unitLabel } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';

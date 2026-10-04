@@ -13,7 +13,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Search as SearchIcon } from '@mui/icons-material';
 import client from '../api/client';
 import { useFetch } from '../hooks/useFetch';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { getErrorMessage } from '../utils/format';
 import PageHeader from './ui/PageHeader';
 import DataTable, { type Column } from './ui/DataTable';

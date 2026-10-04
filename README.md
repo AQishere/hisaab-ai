@@ -43,7 +43,7 @@ cp demoAccounts.example.ts demoAccounts.local.ts
 
 Fill in the same passwords as in `DemoUsers`. Without this file the buttons are simply hidden. They only ever appear in development (`npm run dev`); a production build (`npm run build`) contains neither the buttons nor the passwords.
 
-The mill's address, phone, email and NTN printed on invoices are in `kratix-ui/src/config/company.ts`.
+The mill's address, phone, email and NTN printed on invoices are in `kratix-ui/src/config/company.ts`. They currently contain clearly labelled demo placeholders; replace them before issuing real invoices.
 
 ## Run
 

@@ -3,8 +3,8 @@ import { Alert, TextField } from '@mui/material';
 import FormDialog from './ui/FormDialog';
 import client from '../api/client';
 import { session } from '../auth/session';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import { getErrorMessage } from '../utils/format';
 
 // Changing the password signs out every other session; this one continues with the fresh token.

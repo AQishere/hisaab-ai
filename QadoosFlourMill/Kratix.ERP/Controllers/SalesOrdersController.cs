@@ -80,7 +80,7 @@ public class SalesOrdersController : ControllerBase
             .Include(so => so.Customer)
             .Include(so => so.SOLineItems)
             .ThenInclude(li => li.Product)
-            .FirstOrDefaultAsync(so => so.SalesOrderID == order.SalesOrderID);
+            .SingleAsync(so => so.SalesOrderID == order.SalesOrderID);
 
         return CreatedAtAction(nameof(GetById), new { id = order.SalesOrderID }, MapToDTO(createdOrder));
     }
@@ -107,7 +107,8 @@ public class SalesOrdersController : ControllerBase
         if (order.Status is "Cancelled" or "Closed" or "Dispatched") return BadRequest("This order cannot be dispatched.");
         if (string.IsNullOrWhiteSpace(dto.TruckNumber) || string.IsNullOrWhiteSpace(dto.DriverName)) return BadRequest("Truck and driver are required.");
         var product = await context.Products.FindAsync(lineItem.ProductID);
-        if (product!.Unit == "bag" && dto.DispatchedQuantity != decimal.Truncate(dto.DispatchedQuantity)) return BadRequest("Dispatch a whole number of bags.");
+        if (product == null || string.IsNullOrWhiteSpace(product.Unit)) return BadRequest("The product must have a unit before dispatch.");
+        if (product.Unit == "bag" && dto.DispatchedQuantity != decimal.Truncate(dto.DispatchedQuantity)) return BadRequest("Dispatch a whole number of bags.");
         var stockLots = await context.Inventories
             .Where(inv => inv.ProductID == lineItem.ProductID && inv.StockForm == "Standard" && inv.QuantityAvailable > 0)
             .OrderBy(inv => inv.ReceivedAt)
@@ -278,7 +279,7 @@ public class SalesOrdersController : ControllerBase
             Status = so.Status,
             ClosedReason = so.ClosedReason,
             TotalAmount = so.TotalAmount,
-            LineItems = so.SOLineItems?.Select(li => new SOLineItemDTO
+            LineItems = so.SOLineItems.Select(li => new SOLineItemDTO
             {
                 LineItemID = li.LineItemID,
                 ProductID = li.ProductID,

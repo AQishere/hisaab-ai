@@ -81,7 +81,7 @@ public class PurchaseOrdersController : ControllerBase
             .Include(po => po.Supplier)
             .Include(po => po.POLineItems)
             .ThenInclude(li => li.Product)
-            .FirstOrDefaultAsync(po => po.POID == order.POID);
+            .SingleAsync(po => po.POID == order.POID);
 
         return CreatedAtAction(nameof(GetById), new { id = order.POID }, MapToDTO(createdOrder));
     }
@@ -233,8 +233,8 @@ public class PurchaseOrdersController : ControllerBase
             ExpectedDeliveryDate = po.ExpectedDeliveryDate,
             Status = po.Status,
             ClosedReason = po.ClosedReason,
-            TotalAmount = po.POLineItems?.Sum(li => li.TotalAmount) ?? 0,
-            LineItems = po.POLineItems?.Select(li => new POLineItemDTO
+            TotalAmount = po.POLineItems.Sum(li => li.TotalAmount),
+            LineItems = po.POLineItems.Select(li => new POLineItemDTO
             {
                 LineItemID = li.LineItemID,
                 ProductID = li.ProductID,

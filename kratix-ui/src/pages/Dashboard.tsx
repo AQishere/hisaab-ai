@@ -73,6 +73,7 @@ const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [monthLabel] = useState(() => new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -137,7 +138,7 @@ const Dashboard: React.FC = () => {
     {
       title: 'Sales This Month',
       value: `PKR ${(metrics?.salesThisMonth ?? 0).toLocaleString()}`,
-      unit: new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+      unit: monthLabel,
       Icon: PaymentIcon,
     },
   ];

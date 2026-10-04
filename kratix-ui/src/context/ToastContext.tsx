@@ -1,14 +1,13 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 
-type Severity = 'success' | 'error' | 'info';
+import { ToastContext, type Severity } from '../hooks/useToast';
 interface ToastState {
   message: string;
   severity: Severity;
   key: number;
 }
 
-const ToastContext = createContext<(message: string, severity?: Severity) => void>(() => {});
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -34,5 +33,3 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     </ToastContext.Provider>
   );
 };
-
-export const useToast = () => useContext(ToastContext);

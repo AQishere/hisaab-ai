@@ -3,7 +3,7 @@ import { Button, MenuItem, TextField } from '@mui/material';
 import client from '../api/client';
 import type { Product, PurchaseOrder, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { getErrorMessage, formatNumber } from '../utils/format';
 import FormDialog from './ui/FormDialog';
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, MenuItem, TextField } from '@mui/material';
 import client from '../api/client';
 import type { Invoice } from '../api/types';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { formatMoney, formatNumber, getErrorMessage, todayISO } from '../utils/format';
 import FormDialog from './ui/FormDialog';
 

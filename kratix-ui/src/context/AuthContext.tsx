@@ -1,35 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { session } from '../auth/session';
 
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  login: (token: string, user: User, remember: boolean) => void;
-  logout: () => void;
-  isAuthenticated: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext, type User } from '../hooks/useAuth';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => session.token() ? session.user<User>() : null);
 
   useEffect(() => {
-    const savedUser = session.user<User>();
-    if (session.token() && savedUser) {
-      setUser(savedUser);
-    } else {
-      session.clear();
-    }
-    setIsLoading(false);
+    if (!session.token() || !session.user<User>()) session.clear();
   }, []);
 
   const login = (token: string, userData: User, remember: boolean) => {
@@ -43,16 +21,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, isLoading: false, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
 };

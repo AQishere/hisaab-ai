@@ -25,9 +25,10 @@ const PRINT_CSS = `
   @media (max-width: 640px) { .invoice-sheet { padding: 24px 16px; } .invoice-head { flex-direction: column; } }
   @media print {
     @page { size: A4; margin: 14mm; }
-    .invoice-page { background: #fff; padding: 0; }
+    .invoice-page { background: #fff; padding: 0; min-height: auto; }
     .invoice-sheet { box-shadow: none; padding: 0; max-width: none; border-radius: 0; }
     .invoice-toolbar { display: none; }
+    tr { break-inside: avoid; }
   }
 `;
 
@@ -38,7 +39,9 @@ const InvoicePrint: React.FC = () => {
   const customer = useFetch<Customer>(invoice.data ? `/customers/${invoice.data.customerID}` : null);
 
   if (invoice.error) return <div className="invoice-page"><style>{PRINT_CSS}</style><div className="invoice-sheet">{invoice.error}</div></div>;
-  if (!invoice.data) return <div className="invoice-page"><style>{PRINT_CSS}</style><div className="invoice-sheet">Loading invoice...</div></div>;
+  const loadError = payments.error || customer.error;
+  if (loadError) return <div className="invoice-page"><style>{PRINT_CSS}</style><div className="invoice-sheet">{loadError}</div></div>;
+  if (!invoice.data || payments.loading || customer.loading) return <div className="invoice-page"><style>{PRINT_CSS}</style><div className="invoice-sheet">Loading invoice...</div></div>;
 
   const inv = invoice.data;
   const paid = inv.netAmount - inv.balanceRemaining;

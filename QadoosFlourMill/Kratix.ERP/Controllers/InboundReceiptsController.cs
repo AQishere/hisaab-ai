@@ -92,7 +92,7 @@ public class InboundReceiptsController : ControllerBase
             .Include(ir => ir.Warehouse)
             .Include(ir => ir.PurchaseOrder)
             .Include(ir => ir.POLineItem).ThenInclude(li => li!.Product)
-            .FirstOrDefaultAsync(ir => ir.ReceiptID == receipt.ReceiptID);
+            .SingleAsync(ir => ir.ReceiptID == receipt.ReceiptID);
 
         return CreatedAtAction(nameof(GetById), new { id = receipt.ReceiptID }, MapToDTO(createdReceipt));
     }
