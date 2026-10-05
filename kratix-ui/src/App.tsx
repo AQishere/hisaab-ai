@@ -25,6 +25,7 @@ const Payments = lazy(() => import('./pages/Payments'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Users = lazy(() => import('./pages/Users'));
 const InvoicePrint = lazy(() => import('./pages/InvoicePrint'));
+const Assistant = lazy(() => import('./pages/Assistant'));
 
 // Yellow fails contrast as text on white, so accent-coloured text uses dark gold in light mode.
 const ACCENT_VARS = {
@@ -184,6 +185,7 @@ function App() {
               <Route path="/payments" element={<Payments />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/assistant" element={<Assistant />} />
             </Route>
             <Route
               path="/invoices/:id/print"

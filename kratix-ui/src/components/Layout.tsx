@@ -31,6 +31,7 @@ import {
   Assessment as AssessmentIcon,
   ManageAccounts as ManageAccountsIcon,
   Key as KeyIcon,
+  AutoAwesome as AssistantIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import ThemeToggle from './ThemeToggle';
@@ -60,6 +61,7 @@ const menuItems: NavItem[] = [
   { label: 'Invoices', path: '/invoices', icon: <ReceiptIcon /> },
   { label: 'Payments', path: '/payments', icon: <PaymentIcon /> },
   { label: 'Insights & Admin', section: true },
+  { label: 'Assistant', path: '/assistant', icon: <AssistantIcon /> },
   { label: 'Reports', path: '/reports', icon: <AssessmentIcon /> },
   { label: 'Users', path: '/users', icon: <ManageAccountsIcon /> },
 ];

@@ -29,6 +29,8 @@ export const PAGE_ACCESS: Record<string, Role[]> = {
   '/payments': SALES_FINANCE,
   '/reports': [...FLOOR, 'Sales'],
   '/users': MANAGEMENT,
+  // Last, so it never becomes anyone's home page. The agent applies the same ERP role rules to every answer.
+  '/assistant': [...FLOOR, 'Sales'],
 };
 
 // Report tabs follow the same split as the API (Controllers/ReportsController.cs).
