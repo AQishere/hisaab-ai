@@ -6,10 +6,12 @@ import { quantityBalance, wholeBags } from '../utils/quantities';
 import { PackingHistory } from '../components/HistoryTables';
 import type { BatchMaterial, InventoryItem, Product, ProductionBatch, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
+import { usePagedList } from '../hooks/usePagedList';
 import { useToast } from '../hooks/useToast';
 import { formatDate, formatNumber, getErrorMessage, todayISO } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
+import ListToolbar from '../components/ui/ListToolbar';
 import FormDialog from '../components/ui/FormDialog';
 import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
@@ -19,7 +21,7 @@ type ActionKind = 'input' | 'output' | 'complete';
 const yieldOf = (b: ProductionBatch) => (b.totalInputQuantity > 0 ? (b.totalOutputQuantity / b.totalInputQuantity) * 100 : 0);
 
 const Production: React.FC = () => {
-  const batches = useFetch<ProductionBatch[]>('/productionbatches');
+  const batches = usePagedList<ProductionBatch>('/productionbatches');
   const inventory = useFetch<InventoryItem[]>('/inventory');
   const products = useFetch<Product[]>('/products');
   const warehouses = useFetch<Warehouse[]>('/warehouses');
@@ -152,16 +154,19 @@ const Production: React.FC = () => {
     <Box>
       <PageHeader title="Production" subtitle="Milling batches: wheat in, flour, bran and waste out" actions={newButton} />
 
+      <ListToolbar search={batches.search} onSearch={batches.setSearch} placeholder="Search batch number, operator or status" />
+
       <DataTable
-        rows={batches.data}
+        rows={batches.rows}
+        pagination={batches.pagination}
         rowKey={(b) => b.batchID}
         loading={batches.loading}
         error={batches.error}
         onRetry={batches.reload}
         onRowClick={setSelected}
-        emptyTitle="No batches yet"
-        emptyHint="Plan a milling batch, then add the wheat lots it consumes and what it produces."
-        emptyAction={newButton}
+        emptyTitle={batches.searching ? 'No batches match the search' : 'No batches yet'}
+        emptyHint={batches.searching ? undefined : 'Plan a milling batch, then add the wheat lots it consumes and what it produces.'}
+        emptyAction={batches.searching ? undefined : newButton}
         columns={[
           { key: 'no', label: 'Batch', render: (b) => <strong>{b.batchNumber}</strong> },
           { key: 'date', label: 'Date', render: (b) => formatDate(b.productionDate) },

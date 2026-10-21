@@ -10,11 +10,12 @@ import { StockHistory } from '../components/HistoryTables';
 import DataTable from '../components/ui/DataTable';
 
 const Inventory: React.FC = () => {
-  const { data, loading, error, reload } = useFetch<InventoryItem[]>('/inventory');
+  const [hideEmpty, setHideEmpty] = useState(true);
+  // Every receipt and batch adds lots and most end up empty, so by default only lots with stock are downloaded.
+  const { data, loading, error, reload } = useFetch<InventoryItem[]>(hideEmpty ? '/inventory?inStockOnly=true' : '/inventory');
   const [selected, setSelected] = useState<InventoryItem | null>(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
-  const [hideEmpty, setHideEmpty] = useState(true);
 
   const categories = useMemo(() => ['All', ...new Set(data?.map((i) => i.category) ?? [])], [data]);
 

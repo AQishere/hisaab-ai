@@ -278,6 +278,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<InvoiceLine>().Property(x => x.KgPerBag).HasPrecision(15, 3);
         modelBuilder.Entity<InvoiceLine>().Property(x => x.RatePerUnit).HasPrecision(15, 2);
         modelBuilder.Entity<InvoiceLine>().Property(x => x.TotalAmount).HasPrecision(15, 2);
+        // Dates the dashboard and reports filter by ("this month", "last 30 days", overdue): without these every such
+        // query reads the whole table, which grows by thousands of rows a year.
+        modelBuilder.Entity<SalesOrder>().HasIndex(x => x.SODate);
+        modelBuilder.Entity<Invoice>().HasIndex(x => x.InvoiceDate);
+        modelBuilder.Entity<Invoice>().HasIndex(x => x.DueDate);
+        modelBuilder.Entity<Payment>().HasIndex(x => x.PaymentDate);
+        modelBuilder.Entity<ProductionBatch>().HasIndex(x => x.ProductionDate);
+        modelBuilder.Entity<StockMovement>().HasIndex(x => x.RecordedAt);
+        modelBuilder.Entity<InboundReceipt>().HasIndex(x => x.CreatedDate);
+        modelBuilder.Entity<Dispatch>().HasIndex(x => x.DispatchedAt);
         foreach (var sequence in new[] { "PurchaseOrderNumbers", "SalesOrderNumbers", "ReceiptNumbers", "BatchNumbers", "InvoiceNumbers" })
             modelBuilder.HasSequence<long>(sequence);
     }

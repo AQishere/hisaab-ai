@@ -21,15 +21,23 @@ public class InboundReceiptsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<InboundReceiptDTO>>> GetAll()
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list)
     {
-        var receipts = await context.InboundReceipts
+        IQueryable<InboundReceipt> query = context.InboundReceipts
             .Include(ir => ir.Warehouse)
             .Include(ir => ir.PurchaseOrder)
-            .Include(ir => ir.POLineItem).ThenInclude(li => li!.Product)
-            .ToListAsync();
+            .Include(ir => ir.POLineItem).ThenInclude(li => li!.Product);
+        if (!string.IsNullOrWhiteSpace(list.Status))
+            query = query.Where(ir => ir.Status == list.Status);
+        if (list.Pattern is { } like)
+            query = query.Where(ir => EF.Functions.ILike(ir.ReceiptNumber, like, @"\") || EF.Functions.ILike(ir.PurchaseOrder!.PONumber, like, @"\") ||
+                EF.Functions.ILike(ir.TruckNumber!, like, @"\") || EF.Functions.ILike(ir.DriverName!, like, @"\") ||
+                EF.Functions.ILike(ir.LotNumber!, like, @"\") || EF.Functions.ILike(ir.Status, like, @"\"));
 
-        return Ok(receipts.Select(r => MapToDTO(r)).ToList());
+        if (!list.Paged)
+            return Ok((await query.ToListAsync()).Select(r => MapToDTO(r)).ToList());
+        var page = await Paging.PageAsync(query.OrderByDescending(ir => ir.CreatedDate).ThenByDescending(ir => ir.ReceiptID), list);
+        return Ok(Paging.Result(page, r => MapToDTO(r)));
     }
 
     [HttpGet("{id}")]

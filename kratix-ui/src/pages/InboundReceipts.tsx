@@ -8,10 +8,12 @@ import { useAuth } from '../hooks/useAuth';
 import { canPurchase } from '../auth/permissions';
 import type { InboundReceipt, PurchaseOrder, Warehouse } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
+import { usePagedList } from '../hooks/usePagedList';
 import { useToast } from '../hooks/useToast';
 import { formatDate, formatDateTime, formatNumber, getErrorMessage } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
+import ListToolbar from '../components/ui/ListToolbar';
 import FormDialog from '../components/ui/FormDialog';
 import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
@@ -37,8 +39,9 @@ const ReceiptStepper: React.FC<{ status: string }> = ({ status }) => (
 );
 
 const InboundReceipts: React.FC = () => {
-  const receipts = useFetch<InboundReceipt[]>('/inboundreceipts');
-  const orders = useFetch<PurchaseOrder[]>('/purchaseorders');
+  const receipts = usePagedList<InboundReceipt>('/inboundreceipts');
+  // Only open (sent) orders can receive trucks.
+  const orders = useFetch<PurchaseOrder[]>('/purchaseorders?status=Sent');
   const warehouses = useFetch<Warehouse[]>('/warehouses');
   const toast = useToast();
 
@@ -145,16 +148,19 @@ const InboundReceipts: React.FC = () => {
     <Box>
       <PageHeader title="Inbound Receipts" subtitle="Receive weighed wheat loads or count packaging supplies into stock" actions={<Box sx={{ display: 'flex', gap: 1 }}><PackagingReceiptButton onReceived={() => { receipts.reload(); orders.reload(); }} />{newButton}</Box>} />
 
+      <ListToolbar search={receipts.search} onSearch={receipts.setSearch} placeholder="Search receipt, PO, truck, driver, lot or status" />
+
       <DataTable
-        rows={receipts.data}
+        rows={receipts.rows}
+        pagination={receipts.pagination}
         rowKey={(r) => r.receiptID}
         loading={receipts.loading}
         error={receipts.error}
         onRetry={receipts.reload}
         onRowClick={setViewing}
-        emptyTitle="No trucks received yet"
-        emptyHint="Record a gate entry when a supplier's truck arrives."
-        emptyAction={newButton}
+        emptyTitle={receipts.searching ? 'No receipts match the search' : 'No trucks received yet'}
+        emptyHint={receipts.searching ? undefined : "Record a gate entry when a supplier's truck arrives."}
+        emptyAction={receipts.searching ? undefined : newButton}
         columns={[
           { key: 'no', label: 'Receipt', render: (r) => <strong>{r.receiptNumber}</strong> },
           { key: 'po', label: 'PO', render: (r) => r.poNumber },

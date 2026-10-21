@@ -6,10 +6,12 @@ import { DispatchHistory } from '../components/HistoryTables';
 import ReasonDialog from '../components/ReasonDialog';
 import type { Customer, Product, SalesOrder, SOLineItem } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
+import { usePagedList } from '../hooks/usePagedList';
 import { useToast } from '../hooks/useToast';
 import { formatDate, formatMoney, formatNumber, getErrorMessage, todayISO } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
+import ListToolbar from '../components/ui/ListToolbar';
 import FormDialog from '../components/ui/FormDialog';
 import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
@@ -17,7 +19,7 @@ import LineItemsEditor from '../components/LineItemsEditor';
 import { emptyLine, lineTotal, linesValid, toLinePayload, type LineDraft } from '../utils/lineItems';
 
 const SalesOrders: React.FC = () => {
-  const orders = useFetch<SalesOrder[]>('/salesorders');
+  const orders = usePagedList<SalesOrder>('/salesorders');
   const customers = useFetch<Customer[]>('/customers');
   const products = useFetch<Product[]>('/products');
   const toast = useToast();
@@ -117,16 +119,19 @@ const SalesOrders: React.FC = () => {
     <Box>
       <PageHeader title="Sales Orders" subtitle="Customer orders and their dispatch to trucks" actions={newButton} />
 
+      <ListToolbar search={orders.search} onSearch={orders.setSearch} placeholder="Search SO number, customer or status" />
+
       <DataTable
-        rows={orders.data}
+        rows={orders.rows}
+        pagination={orders.pagination}
         rowKey={(o) => o.salesOrderID}
         loading={orders.loading}
         error={orders.error}
         onRetry={orders.reload}
         onRowClick={setSelected}
-        emptyTitle="No sales orders yet"
-        emptyHint="Create a sales order when a customer places an order."
-        emptyAction={newButton}
+        emptyTitle={orders.searching ? 'No sales orders match the search' : 'No sales orders yet'}
+        emptyHint={orders.searching ? undefined : 'Create a sales order when a customer places an order.'}
+        emptyAction={orders.searching ? undefined : newButton}
         columns={[
           { key: 'no', label: 'SO number', render: (o) => <strong>{o.soNumber}</strong> },
           { key: 'cust', label: 'Customer', render: (o) => o.customerName },

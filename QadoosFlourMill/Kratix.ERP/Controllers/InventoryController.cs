@@ -13,13 +13,17 @@ namespace Kratix.ERP.Controllers;
 public class InventoryController(AppDbContext context) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<InventoryDTO>>> GetAll([FromQuery] bool inStockOnly = false)
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list, [FromQuery] bool inStockOnly = false)
     {
         var query = context.Inventories.AsNoTracking();
         if (inStockOnly)
             query = query.Where(i => i.QuantityAvailable > 0);
+        if (list.Pattern is { } like)
+            query = query.Where(i => EF.Functions.ILike(i.Product!.ProductName, like, @"\") || EF.Functions.ILike(i.Product.ProductCode, like, @"\") ||
+                EF.Functions.ILike(i.Warehouse!.WarehouseName, like, @"\") || EF.Functions.ILike(i.LotNumber!, like, @"\") ||
+                EF.Functions.ILike(i.BinCode!, like, @"\") || EF.Functions.ILike(i.StockForm, like, @"\"));
 
-        var items = await query
+        var rows = query
             .OrderBy(i => i.Product!.ProductName)
             .ThenBy(i => i.LotNumber)
             .Select(i => new InventoryDTO
@@ -37,10 +41,12 @@ public class InventoryController(AppDbContext context) : ControllerBase
                 LotNumber = i.LotNumber,
                 QuantityAvailable = i.QuantityAvailable,
                 LastUpdatedDate = i.LastUpdatedDate,
-            })
-            .ToListAsync();
+            });
 
-        return Ok(items);
+        if (!list.Paged)
+            return Ok(await rows.ToListAsync());
+        // Ordered by product and lot above, so one product's lots stay together across pages.
+        return Ok(Paging.Result(await Paging.PageAsync(rows, list), i => i));
     }
     [HttpGet("{id}/movements")]
     public async Task<ActionResult> Movements(int id) => Ok(await context.StockMovements.Where(m => m.InventoryID == id)

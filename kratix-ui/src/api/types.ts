@@ -197,6 +197,7 @@ export interface Payment {
   paymentID: number;
   invoiceID: number;
   invoiceNumber: string;
+  customerName: string | null;
   paymentDate: string;
   paymentMode: string;
   paymentAmount: number;
@@ -254,4 +255,13 @@ export interface ReceivablesReport {
   totals: Aging;
   byCustomer: { customerName: string; invoices: number; aging: Aging }[];
   invoices: { invoiceNumber: string; invoiceDate: string; dueDate: string | null; customerName: string; netAmount: number; balance: number; daysOverdue: number; bucket: string }[];
+}
+
+// One page of a list endpoint called with ?page (see the API's Data/Paging.cs).
+export interface Paged<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalAmount: number | null;
 }

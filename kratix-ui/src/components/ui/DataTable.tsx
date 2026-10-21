@@ -10,6 +10,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   Typography,
 } from '@mui/material';
@@ -33,6 +34,8 @@ interface DataTableProps<T> {
   emptyTitle: string;
   emptyHint?: string;
   emptyAction?: React.ReactNode;
+  // Server-side paging (usePagedList): page is 1-based.
+  pagination?: { page: number; pageSize: number; total: number; onPageChange: (page: number) => void };
 }
 
 function DataTable<T>({
@@ -46,6 +49,7 @@ function DataTable<T>({
   emptyTitle,
   emptyHint,
   emptyAction,
+  pagination,
 }: DataTableProps<T>) {
   if (error) {
     return (
@@ -129,6 +133,17 @@ function DataTable<T>({
           ))}
         </TableBody>
       </Table>
+      {pagination && pagination.total > pagination.pageSize && (
+        <TablePagination
+          component="div"
+          count={pagination.total}
+          page={pagination.page - 1}
+          rowsPerPage={pagination.pageSize}
+          rowsPerPageOptions={[]}
+          onPageChange={(_, page) => pagination.onPageChange(page + 1)}
+          sx={{ borderTop: 1, borderColor: 'divider' }}
+        />
+      )}
     </TableContainer>
   );
 }

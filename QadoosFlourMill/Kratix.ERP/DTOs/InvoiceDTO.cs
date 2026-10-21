@@ -33,6 +33,7 @@ public class PaymentDTO
     public int PaymentID { get; set; }
     public int InvoiceID { get; set; }
     public string? InvoiceNumber { get; set; }
+    public string? CustomerName { get; set; }
     public DateTime PaymentDate { get; set; }
     public required string PaymentMode { get; set; }
     public decimal PaymentAmount { get; set; }

@@ -20,17 +20,27 @@ public class InvoicesController : ControllerBase
         this.context = context;
     }
 
+    // ?open=true lists the invoices with money still owed (the payment form uses it).
     [HttpGet]
-    public async Task<ActionResult<List<InvoiceDTO>>> GetAll()
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list, [FromQuery] bool open = false)
     {
-        var invoices = await context.Invoices
+        IQueryable<Invoice> query = context.Invoices
             .Include(i => i.Customer)
             .Include(i => i.SalesOrder)
             .Include(i => i.Payments)
-            .Include(i => i.Lines)
-            .ToListAsync();
+            .Include(i => i.Lines);
+        if (open)
+            query = query.Where(i => i.Status != "Paid");
+        if (!string.IsNullOrWhiteSpace(list.Status))
+            query = query.Where(i => i.Status == list.Status);
+        if (list.Pattern is { } like)
+            query = query.Where(i => EF.Functions.ILike(i.InvoiceNumber, like, @"\") || EF.Functions.ILike(i.Customer!.CustomerName, like, @"\") ||
+                EF.Functions.ILike(i.SalesOrder!.SONumber, like, @"\") || EF.Functions.ILike(i.Status, like, @"\"));
 
-        return Ok(invoices.Select(i => MapToDTO(i)).ToList());
+        if (!list.Paged)
+            return Ok((await query.ToListAsync()).Select(i => MapToDTO(i)).ToList());
+        var page = await Paging.PageAsync(query.OrderByDescending(i => i.InvoiceDate).ThenByDescending(i => i.InvoiceID), list);
+        return Ok(Paging.Result(page, i => MapToDTO(i)));
     }
 
     [HttpGet("{id}")]

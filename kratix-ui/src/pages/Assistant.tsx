@@ -339,7 +339,7 @@ const Assistant: React.FC = () => {
               </Box>
             ) : (
               <Box key={m.key} sx={{ mb: 3, maxWidth: 920 }}>
-                <Typography sx={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.8px', color: 'var(--accent-text)', mb: 0.5 }}>KRATIX</Typography>
+                <Typography sx={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.8px', color: 'var(--accent-text)', mb: 0.5 }}>HISAAB</Typography>
                 {m.status && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }} role="status">
                     <CircularProgress size={14} />

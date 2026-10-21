@@ -103,7 +103,8 @@ class ChatService:
             total_ms = _ms(time.perf_counter() - started)
             message_id = self._store.save_answer(session_id, question, result.answer, self._entry(
                 user, session_id, question, status, total_ms, tool_calls=_calls(result), first_token_ms=first_token_ms,
-                llm_ms=result.llm_ms, erp_ms=result.erp_ms), report_id=result.report["id"] if result.report else None)
+                llm_ms=result.llm_ms, erp_ms=result.erp_ms, **_usage(result)),
+                report_id=result.report["id"] if result.report else None)
             yield sse("done", {
                 "messageId": message_id,
                 "toolCalls": [{"name": c.name, "arguments": c.arguments, "error": c.error} for c in result.tool_calls],
@@ -130,6 +131,13 @@ class ChatService:
                     error=error or "client disconnected"))
         if user_message:
             yield sse("error", {"message": user_message})
+
+
+def _usage(result: AgentResult) -> dict[str, Any]:
+    """Which providers answered (in order, without repeats), how often a fallback was used, tokens and cost."""
+    return {"provider": ",".join(dict.fromkeys(result.providers)) or None, "fallbacks": result.fallbacks,
+            "prompt_tokens": result.prompt_tokens, "completion_tokens": result.completion_tokens,
+            "cost_usd": round(result.cost_usd, 6)}
 
 
 def _calls(result: AgentResult) -> list[dict[str, Any]]:

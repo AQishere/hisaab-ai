@@ -3,13 +3,17 @@
 
 export const TOKENS = {
   // Colour reference. The live palettes are in App.tsx (createTheme colorSchemes).
-  // One accent: yellow. Light theme = white + yellow, dark theme = near-black + yellow.
+  // Hisaab brand (from the logo): deep green, cream, gold sparkle, terracotta line.
+  // Light theme = warm off-white + green, dark theme = green-black + light green.
   colors: {
-    accent: '#facc15',
-    accentHover: '#eab308',
-    accentTextLight: '#854d0e',
-    neutralLight: { background: '#fafafa', paper: '#ffffff', text: '#18181b', textMuted: '#71717a', divider: '#e4e4e7' },
-    neutralDark: { background: '#0a0a0a', paper: '#141414', text: '#fafafa', textMuted: '#a1a1aa', divider: '#262626' },
+    accent: '#0e5a3a',
+    accentHover: '#0a4530',
+    accentTextLight: '#0e5a3a',
+    cream: '#fbf6ea',
+    gold: '#e3a72f',
+    terracotta: '#c8553d',
+    neutralLight: { background: '#f8f6f0', paper: '#ffffff', text: '#1b2420', textMuted: '#66706a', divider: '#e6e2d8' },
+    neutralDark: { background: '#0b1410', paper: '#121d18', text: '#f3efe4', textMuted: '#a3b0a8', divider: '#223029' },
     success: '#16a34a',
     warning: '#ea580c',
     error: '#dc2626',
@@ -163,7 +167,7 @@ export const COMPONENT_TOKENS = {
     fontSize: '13px',
     borderRadius: '8px',
     borderColor: '#e4e4e7',
-    focusBorderColor: '#ca8a04',
+    focusBorderColor: '#0e5a3a',
     focusBoxShadow: '0 0 0 3px rgb(59 130 246 / 0.1)',
   },
 

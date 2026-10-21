@@ -17,7 +17,7 @@ from app.config import settings
 from app.erp_client import ErpClient, ResponseCache
 from app.limits import LimitError, UserLimits
 from app.store import MIGRATIONS, LogEntry, Store
-from tests.test_agent import scripted_llm, tool_call
+from tests.test_agent import answer, provider, scripted_llm, tool_call
 
 KEY = "test-key-that-is-at-least-32-characters-long"
 
@@ -248,8 +248,7 @@ def test_expired_erp_session_ends_with_an_error_event():
 
 def test_rate_limited_api_ends_with_busy_message():
     from app.llm import Llm
-    llm = Llm(httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(429)), base_url="http://gemini/"),
-              "gemini-test", parallel=1, queue_cap=10, options={})
+    llm = Llm([provider("gemini", lambda r: httpx.Response(429))], parallel=1, queue_cap=10)
     store = Store(":memory:")
     chat = ChatService(store, Agent(llm), llm, UserLimits(20), erp_http(ERP_DATA), ResponseCache(30))
     user = check(token())
@@ -264,8 +263,7 @@ def test_model_unreachable_ends_with_offline_message():
         raise httpx.ConnectError("refused")
 
     from app.llm import Llm
-    llm = Llm(httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://gemini/"), "gemini-test",
-              parallel=1, queue_cap=10, options={})
+    llm = Llm([provider("gemini", handler)], parallel=1, queue_cap=10)
     store = Store(":memory:")
     chat = ChatService(store, Agent(llm), llm, UserLimits(20), erp_http(ERP_DATA), ResponseCache(30))
     user = check(token())
@@ -310,3 +308,18 @@ def test_session_routes(client):
     assert client.delete(f"/chat/sessions/{session['id']}", headers=other).status_code == 404
     assert client.delete(f"/chat/sessions/{session['id']}", headers=owner).status_code == 204
     assert client.get("/chat/sessions", headers=owner).json() == []
+
+
+def test_log_records_provider_fallback_tokens_and_cost():
+    from app.llm import Llm
+    llm = Llm([provider("gemini", lambda r: httpx.Response(503)),
+               provider("groq", lambda r: answer("Hello.", {"prompt_tokens": 200, "completion_tokens": 50}))],
+              parallel=1, queue_cap=10)
+    store = Store(":memory:")
+    chat = ChatService(store, Agent(llm), llm, UserLimits(20), erp_http(ERP_DATA), ResponseCache(30))
+    user = check(token())
+    session = store.create_session(user.id, user.username)
+    assert events(chat.start(user, session["id"], "Hi"))[-1][0] == "done"
+    row = store.log_rows()[0]
+    assert (row["provider"], row["fallbacks"], row["prompt_tokens"], row["completion_tokens"]) == ("groq", 1, 200, 50)
+    assert row["cost_usd"] == 0.0003

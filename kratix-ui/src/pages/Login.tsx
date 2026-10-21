@@ -45,11 +45,11 @@ const BackdropArcs: React.FC = () => (
       width: '100%',
       height: '100%',
       pointerEvents: 'none',
-      '--arc-strong': '#18181b',
-      '--arc-soft': 'rgba(255, 255, 255, 0.35)',
+      '--arc-strong': '#fbf6ea',
+      '--arc-soft': 'rgba(251, 246, 234, 0.12)',
       ...theme.applyStyles('dark', {
-        '--arc-strong': '#a16207',
-        '--arc-soft': 'rgba(250, 204, 21, 0.10)',
+        '--arc-strong': '#1f6b48',
+        '--arc-soft': 'rgba(127, 206, 164, 0.08)',
       }),
     })}
   >
@@ -122,8 +122,8 @@ const Login: React.FC = () => {
         p: { xs: 2, md: 4 },
         position: 'relative',
         overflow: 'hidden',
-        bgcolor: '#facc15',
-        ...theme.applyStyles('dark', { bgcolor: '#0a0a0a' }),
+        bgcolor: '#0e5a3a',
+        ...theme.applyStyles('dark', { bgcolor: '#0b1410' }),
       })}
     >
       <BackdropArcs />
@@ -150,7 +150,7 @@ const Login: React.FC = () => {
         {/* form side */}
         <Box sx={{ px: { xs: 3, sm: 6 }, py: { xs: 4, sm: 5.5 }, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ mb: { xs: 1, md: 4 } }}>
-            <BrandLogo height={34} />
+            <BrandLogo height={42} />
           </Box>
 
           <Box sx={{ my: 'auto', pt: { xs: 4, md: 0 }, width: '100%', maxWidth: 390 }}>
@@ -164,7 +164,7 @@ const Login: React.FC = () => {
               component="h1"
               sx={{ fontSize: { xs: '34px', sm: '40px', md: '38px' }, fontWeight: 800, lineHeight: 1.08, letterSpacing: '-1.5px', color: HEADLINE, mb: 4 }}
             >
-              Integrated<br />Managment System
+              Integrated<br />Management System
             </Typography>
 
             {error && (
@@ -311,8 +311,8 @@ const Login: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             p: 5,
-            bgcolor: '#fefce8',
-            ...theme.applyStyles('dark', { bgcolor: '#0f0f0f' }),
+            bgcolor: '#fbf6ea',
+            ...theme.applyStyles('dark', { bgcolor: '#101a15' }),
           })}
         >
           <LoginIllustration />

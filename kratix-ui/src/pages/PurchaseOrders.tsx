@@ -1,13 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Box, Button, MenuItem, TextField } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
 import type { Product, PurchaseOrder, Supplier } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
+import { usePagedList } from '../hooks/usePagedList';
 import { useToast } from '../hooks/useToast';
 import { formatDate, formatMoney, formatNumber, getErrorMessage, todayISO } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
+import ListToolbar from '../components/ui/ListToolbar';
 import FormDialog from '../components/ui/FormDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StatusChip from '../components/ui/StatusChip';
@@ -19,12 +21,12 @@ import { emptyLine, linesValid, toLinePayload, type LineDraft } from '../utils/l
 const STATUSES = ['All', 'Draft', 'Sent', 'Received', 'Closed', 'Cancelled'];
 
 const PurchaseOrders: React.FC = () => {
-  const orders = useFetch<PurchaseOrder[]>('/purchaseorders');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const orders = usePagedList<PurchaseOrder>('/purchaseorders', { status: statusFilter === 'All' ? undefined : statusFilter });
   const suppliers = useFetch<Supplier[]>('/suppliers');
   const products = useFetch<Product[]>('/products');
   const toast = useToast();
 
-  const [statusFilter, setStatusFilter] = useState('All');
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [supplierID, setSupplierID] = useState('');
@@ -37,11 +39,6 @@ const PurchaseOrders: React.FC = () => {
   const [selected, setSelected] = useState<PurchaseOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const rows = useMemo(
-    () => orders.data?.filter((o) => statusFilter === 'All' || o.status === statusFilter) ?? null,
-    [orders.data, statusFilter],
-  );
 
   const openCreate = () => {
     setEditing(null);
@@ -129,31 +126,27 @@ const PurchaseOrders: React.FC = () => {
     <Box>
       <PageHeader title="Purchase Orders" subtitle="Orders placed with suppliers for wheat and packaging" actions={newButton} />
 
-      <TextField
-        select
-        size="small"
-        label="Status"
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        sx={{ mb: 2, width: 180 }}
-      >
-        {STATUSES.map((s) => (
-          <MenuItem key={s} value={s}>
-            {s}
-          </MenuItem>
-        ))}
-      </TextField>
+      <ListToolbar search={orders.search} onSearch={orders.setSearch} placeholder="Search PO number or supplier">
+        <TextField select size="small" label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ width: 180 }}>
+          {STATUSES.map((s) => (
+            <MenuItem key={s} value={s}>
+              {s}
+            </MenuItem>
+          ))}
+        </TextField>
+      </ListToolbar>
 
       <DataTable
-        rows={rows}
+        rows={orders.rows}
+        pagination={orders.pagination}
         rowKey={(o) => o.poid}
         loading={orders.loading}
         error={orders.error}
         onRetry={orders.reload}
         onRowClick={setSelected}
-        emptyTitle={statusFilter === 'All' ? 'No purchase orders yet' : `No ${statusFilter.toLowerCase()} purchase orders`}
-        emptyHint={statusFilter === 'All' ? 'Create a purchase order when you need to buy wheat or packaging.' : undefined}
-        emptyAction={statusFilter === 'All' ? newButton : undefined}
+        emptyTitle={orders.searching ? 'No purchase orders match the search' : statusFilter === 'All' ? 'No purchase orders yet' : `No ${statusFilter.toLowerCase()} purchase orders`}
+        emptyHint={statusFilter === 'All' && !orders.searching ? 'Create a purchase order when you need to buy wheat or packaging.' : undefined}
+        emptyAction={statusFilter === 'All' && !orders.searching ? newButton : undefined}
         columns={[
           { key: 'no', label: 'PO number', render: (o) => <strong>{o.poNumber}</strong> },
           { key: 'supplier', label: 'Supplier', render: (o) => o.supplierName },

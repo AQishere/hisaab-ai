@@ -14,9 +14,30 @@ class Settings(BaseSettings):
     # Gemini's OpenAI-compatible endpoint. The key comes from Google AI Studio and stays on this server.
     gemini_api_key: str = ""
     gemini_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    gemini_model: str = "gemini-3.8-flash"
+    # 3.8-flash took 15-38 s per tool call on the free tier (2026-10-21); 3.5-flash about 1.5 s with the same tools.
+    gemini_model: str = "gemini-3.5-flash"
     # minimal, low, medium or high; empty leaves the model's default. Thinking costs time before the first word.
     reasoning_effort: str = "low"
+    # USD per million tokens (input, output), for the cost in the question log. Check the provider's price page.
+    gemini_price_in: float = 0.30
+    gemini_price_out: float = 2.50
+
+    # Fallbacks, tried in this order when the one before fails; an empty key or URL leaves one out.
+    groq_api_key: str = ""
+    groq_url: str = "https://api.groq.com/openai/v1/"
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_price_in: float = 0.59
+    groq_price_out: float = 0.79
+    # Local Ollama for internet outages at the mill, e.g. http://127.0.0.1:11434/v1/ (127.0.0.1, not localhost:
+    # on Windows "localhost" tries IPv6 first and Ollama listens on IPv4 only).
+    ollama_url: str = ""
+    ollama_model: str = "qwen2.5:7b"
+
+    # A provider that sends nothing within this time is passed over for the next one.
+    llm_first_token_seconds: float = 8.0
+    # After this many failures in a row a provider is skipped for llm_breaker_seconds.
+    llm_breaker_failures: int = 3
+    llm_breaker_seconds: float = 60.0
     company_name: str = "Crescent Flour Mills"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 

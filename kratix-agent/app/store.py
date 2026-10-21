@@ -79,6 +79,15 @@ MIGRATIONS = [
       PRIMARY KEY (message_id, user_id)
     );
     """,
+    # Which provider answered (gemini, groq, ollama; "gemini,groq" when one question used both), how many model
+    # calls fell back to a later provider, tokens and estimated cost.
+    """
+    ALTER TABLE question_log ADD COLUMN provider TEXT;
+    ALTER TABLE question_log ADD COLUMN fallbacks INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE question_log ADD COLUMN prompt_tokens INTEGER;
+    ALTER TABLE question_log ADD COLUMN completion_tokens INTEGER;
+    ALTER TABLE question_log ADD COLUMN cost_usd REAL;
+    """,
 ]
 
 TITLE_LENGTH = 60
@@ -103,6 +112,11 @@ class LogEntry:
     llm_ms: int | None = None
     erp_ms: int | None = None
     error: str | None = None
+    provider: str | None = None
+    fallbacks: int = 0
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    cost_usd: float | None = None
 
 
 class Store:
@@ -183,11 +197,12 @@ class Store:
     def _insert_log(self, entry: LogEntry, message_id: str | None, created_at: str) -> None:
         self._db.execute(
             "INSERT INTO question_log (message_id, session_id, user_id, username, role, question, tool_calls, model, "
-            "first_token_ms, llm_ms, erp_ms, total_ms, status, error, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "first_token_ms, llm_ms, erp_ms, total_ms, status, error, created_at, provider, fallbacks, prompt_tokens, "
+            "completion_tokens, cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (message_id, entry.session_id, entry.user_id, entry.username, entry.role, entry.question,
              json.dumps(entry.tool_calls, default=str), entry.model, entry.first_token_ms, entry.llm_ms, entry.erp_ms,
-             entry.total_ms, entry.status, entry.error, created_at))
+             entry.total_ms, entry.status, entry.error, created_at, entry.provider, entry.fallbacks,
+             entry.prompt_tokens, entry.completion_tokens, entry.cost_usd))
 
     def save_answer(self, session_id: str, question: str, answer: str, entry: LogEntry,
                     report_id: str | None = None) -> str:
@@ -271,7 +286,8 @@ class Store:
         """Raw rows for /admin/stats; the service does the arithmetic."""
         return {
             "log": self._rows(
-                "SELECT username, role, tool_calls, status, first_token_ms, total_ms, created_at FROM question_log "
+                "SELECT username, role, tool_calls, status, first_token_ms, total_ms, created_at, provider, fallbacks, "
+                "prompt_tokens, completion_tokens, cost_usd FROM question_log "
                 "WHERE created_at >= ? ORDER BY created_at", (since,)),
             "feedback": self._rows(
                 "SELECT f.message_id, f.rating, f.comment, f.created_at, m.content AS answer, "

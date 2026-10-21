@@ -5,7 +5,7 @@ from datetime import date
 import httpx
 
 from app.agent import FALLBACK_ANSWER, NO_TOOL_NUDGE, Agent, system_prompt
-from app.llm import Llm
+from app.llm import BusyError, Llm, LlmError, Provider
 from tests.test_tools import FakeErp
 
 
@@ -31,8 +31,14 @@ def scripted_llm(replies: list[dict]) -> tuple[Llm, list[dict]]:
         requests.append(json.loads(request.content))
         return httpx.Response(200, content=_sse(replies[len(requests) - 1]))
 
-    http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://gemini/")
-    return Llm(http, "gemini-test", parallel=1, queue_cap=10, options={"temperature": 0.1}), requests
+    return Llm([provider("gemini", handler, "gemini-test")], parallel=1, queue_cap=10), requests
+
+
+def provider(name: str, handler, model: str = "m") -> Provider:
+    """A provider answering through handler, which gets each httpx request."""
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url=f"http://{name}/")
+    return Provider(name, http, model, {"temperature": 0.1}, price_in=1.0, price_out=2.0,
+                    keeps_extra_fields=name == "gemini")
 
 
 def tool_call(name: str, arguments: dict | None = None) -> dict:
@@ -83,14 +89,110 @@ def test_tool_call_streamed_in_pieces_is_joined():
     body = "".join(f"data: {json.dumps({'choices': [{'delta': {'tool_calls': [p]}}]})}\n\n" for p in pieces)
 
     async def run():
-        transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body + "data: [DONE]\n\n"))
-        llm = Llm(httpx.AsyncClient(transport=transport, base_url="http://gemini/"), "m", parallel=1, queue_cap=1,
-                  options={})
+        llm = Llm([provider("gemini", lambda r: httpx.Response(200, text=body + "data: [DONE]\n\n"))],
+                  parallel=1, queue_cap=1)
         return [c async for c in llm.stream_chat([], None)]
 
-    (chunk,) = asyncio.run(run())
+    started, chunk = asyncio.run(run())
+    assert started == {"provider": "gemini", "fallback": False}
     assert chunk["tool_calls"] == [{"id": "c1", "type": "function",
                                     "function": {"name": "sales_report", "arguments": '{"period": "today"}'}}]
+
+
+# ---------------------------------------------------------------- fallback between providers
+
+def answer(text: str, usage: dict | None = None) -> httpx.Response:
+    body = _sse({"content": text})
+    if usage:
+        body = body.replace(b"data: [DONE]", f"data: {json.dumps({'choices': [], 'usage': usage})}\n\ndata: [DONE]".encode())
+    return httpx.Response(200, content=body)
+
+
+def test_rate_limited_or_failing_provider_falls_back_and_usage_is_counted():
+    for status in (429, 500, 503):
+        llm = Llm([provider("gemini", lambda r, s=status: httpx.Response(s)),
+                   provider("groq", lambda r: answer("Hello.", {"prompt_tokens": 1000, "completion_tokens": 500}))],
+                  parallel=1, queue_cap=1)
+        result = asyncio.run(Agent(llm).ask("Hi", [], FakeErp(ERP), "Owner"))
+        assert result.answer == "Hello." and result.providers == ["groq"] and result.fallbacks == 1
+        # groq costs 1 and 2 USD per million tokens in these tests.
+        assert (result.prompt_tokens, result.completion_tokens, result.cost_usd) == (1000, 500, 0.002)
+
+
+def test_slow_first_token_falls_back():
+    async def slow(request):
+        await asyncio.sleep(1)
+        return answer("Too late.")
+
+    llm = Llm([provider("gemini", slow), provider("groq", lambda r: answer("Quick."))], parallel=1, queue_cap=1,
+              first_token_seconds=0.05)
+    result = asyncio.run(Agent(llm).ask("Hi", [], FakeErp(ERP), "Owner"))
+    assert result.answer == "Quick." and result.providers == ["groq"]
+
+
+def test_bad_request_is_not_hidden_by_a_fallback():
+    groq = []
+    llm = Llm([provider("gemini", lambda r: httpx.Response(400, text="bad tool schema")),
+               provider("groq", lambda r: groq.append(r) or answer("x"))], parallel=1, queue_cap=1)
+
+    async def run():
+        return [c async for c in llm.stream_chat([{"role": "user", "content": "Hi"}], None)]
+
+    try:
+        asyncio.run(run())
+        raise AssertionError("expected LlmError")
+    except LlmError as exc:
+        assert "HTTP 400" in str(exc) and not groq
+
+
+def test_every_provider_rate_limited_is_busy():
+    llm = Llm([provider("gemini", lambda r: httpx.Response(429)), provider("groq", lambda r: httpx.Response(429))],
+              parallel=1, queue_cap=1)
+
+    async def run():
+        return [c async for c in llm.stream_chat([{"role": "user", "content": "Hi"}], None)]
+
+    try:
+        asyncio.run(run())
+        raise AssertionError("expected BusyError")
+    except BusyError:
+        pass
+
+
+def test_circuit_breaker_skips_a_failing_provider_then_retries_it():
+    now = [0.0]
+    gemini_calls = []
+    llm = Llm([provider("gemini", lambda r: gemini_calls.append(r) or httpx.Response(503)),
+               provider("groq", lambda r: answer("ok"))],
+              parallel=1, queue_cap=1, breaker_failures=3, breaker_seconds=60, clock=lambda: now[0])
+    ask = lambda: asyncio.run(Agent(llm).ask("Hi", [], FakeErp(ERP), "Owner"))  # noqa: E731
+    for _ in range(5):
+        assert ask().providers == ["groq"]
+    assert len(gemini_calls) == 3          # skipped after the third failure
+    now[0] = 61
+    ask()
+    assert len(gemini_calls) == 4          # tried again once the minute is over
+
+
+def test_gemini_fields_are_not_sent_to_other_providers():
+    requests = []
+    replies = iter([tool_call("business_overview") | {"tool_calls": [{"function": {"name": "business_overview", "arguments": {}},
+                                                                   "extra_content": {"google": {"thought_signature": "s"}}}]}])
+
+    def gemini(request):
+        # Answers the tool call, then fails, so the second round goes to groq.
+        reply = next(replies, None)
+        return httpx.Response(200, content=_sse(reply)) if reply else httpx.Response(503)
+
+    def groq(request):
+        requests.append(json.loads(request.content))
+        return answer("Done.")
+
+    llm = Llm([provider("gemini", gemini), provider("groq", groq)], parallel=1, queue_cap=1)
+    result = asyncio.run(Agent(llm).ask("Overview", [], FakeErp(ERP), "Owner"))
+    assert result.answer == "Done." and result.providers == ["gemini", "groq"] and result.fallbacks == 1
+    sent = requests[0]["messages"][-2]["tool_calls"][0]
+    assert "extra_content" not in sent and sent["id"] == "call_0"
 
 
 def test_tool_call_written_as_plain_json_is_accepted_and_not_shown():

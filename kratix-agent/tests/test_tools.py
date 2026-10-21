@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 
@@ -256,3 +257,14 @@ def test_a_list_of_products_matches_any_of_them():
     ]})
     result = call("current_stock", {"product": "atta, flour and bran"}, erp)
     assert [r["product"] for r in result["stock"]] == ["Chakki Atta 10kg", "Wheat Bran 40kg"]
+
+
+def test_contact_details_reach_the_app_but_not_the_model():
+    erp = FakeErp({"customers": [{"customerName": "Ali Sons Retail", "type": "Retailer", "contactPerson": "Ali Raza",
+                                  "phoneNumber": "0315-3328870", "address": "Saddar", "creditLimit": 1500000,
+                                  "outstandingBalance": 1200, "isActive": True}]})
+    output = asyncio.run(run_tool("customer_details", {}, erp))
+    sent = json.dumps(output.model)
+    assert "Ali Sons Retail" in sent and "0315" not in sent and "Ali Raza" not in sent and "Saddar" not in sent
+    assert "privacy" in output.model
+    assert output.data["rows"][0]["phone"] == "0315-3328870"

@@ -103,6 +103,19 @@ class AgentResult:
     llm_ms: int = 0
     erp_ms: int = 0
     report: dict[str, Any] | None = None
+    # One entry per model call ("gemini", "groq", ...); fallbacks counts calls not answered by the first provider.
+    providers: list[str] = field(default_factory=list)
+    fallbacks: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cost_usd: float = 0.0
+
+    def add_usage(self, other: "AgentResult") -> None:
+        self.providers += other.providers
+        self.fallbacks += other.fallbacks
+        self.prompt_tokens += other.prompt_tokens
+        self.completion_tokens += other.completion_tokens
+        self.cost_usd += other.cost_usd
 
 
 @dataclass
@@ -118,7 +131,7 @@ def system_prompt(role: str | None, today: date) -> str:
     tool list: first words up to 1.4 s instead of about 0.5 s). Tried 2026-10-05: moving the role next to the
     question made qwen2.5:7b answer English questions in Urdu script, copy the Roman Urdu example without calling a
     tool, and miss SO-2026-002. Revisit with fine-tuning."""
-    return f"""You are Kratix Assistant, the business assistant inside the Kratix ERP for {settings.company_name}, a flour mill.
+    return f"""You are Hisaab Assistant, the business assistant inside the Hisaab ERP for {settings.company_name}, a flour mill.
 Today is {today:%A, %d %B %Y} ({today.isoformat()}). The user is signed in with the role: {role or "unknown"}.
 
 How to answer:
@@ -206,6 +219,13 @@ class Agent:
             # The tool list goes with every call, including the one that writes the answer, so the model can still
             # ask for more data instead of guessing.
             async for chunk in self._llm.stream_chat(messages, TOOL_SCHEMAS):
+                if "provider" in chunk:
+                    timing.providers.append(chunk["provider"])
+                    timing.fallbacks += chunk["fallback"]
+                if usage := chunk.get("usage"):
+                    timing.prompt_tokens += usage["prompt_tokens"]
+                    timing.completion_tokens += usage["completion_tokens"]
+                    timing.cost_usd += usage["cost_usd"]
                 calls += chunk.get("tool_calls") or []
                 text = chunk.get("content") or ""
                 if not text:
@@ -261,6 +281,7 @@ class Agent:
                 merged.llm_ms += one.llm_ms
                 merged.erp_ms += one.erp_ms
                 merged.report = one.report or merged.report
+                merged.add_usage(one)
         merged.answer = "\n\n".join(answers)
         yield Event("result", merged)
 

@@ -12,7 +12,7 @@ const PRINT_CSS = `
   .invoice-sheet { background: #fff; max-width: 820px; margin: 0 auto; padding: 48px 56px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
   .invoice-toolbar { max-width: 820px; margin: 0 auto 16px; display: flex; gap: 8px; justify-content: flex-end; }
   .invoice-toolbar button { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid #111; background: #fff; color: #111; cursor: pointer; }
-  .invoice-toolbar button.primary { background: #facc15; border-color: #facc15; }
+  .invoice-toolbar button.primary { background: #0e5a3a; border-color: #0e5a3a; color: #fbf6ea; }
   .invoice-sheet h1 { font-size: 28px; margin: 0; letter-spacing: -0.5px; }
   .invoice-sheet table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .invoice-sheet th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #555; border-bottom: 2px solid #111; padding: 8px 6px; }

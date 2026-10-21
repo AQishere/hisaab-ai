@@ -1,3 +1,5 @@
+import { responseCache } from '../api/responseCache';
+
 // "Remember me" keeps the session in localStorage (survives closing the browser);
 // otherwise it lives in sessionStorage and ends when the browser is closed.
 const TOKEN = 'authToken';
@@ -34,6 +36,7 @@ export const session = {
   },
 
   clear() {
+    responseCache.clear();
     safe(() => {
       for (const store of [localStorage, sessionStorage]) {
         store.removeItem(TOKEN);

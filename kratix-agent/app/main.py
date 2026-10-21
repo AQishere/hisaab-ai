@@ -17,7 +17,7 @@ from .chat import ChatError, ChatService, report_out
 from .config import settings
 from .erp_client import ErpClient, ResponseCache
 from .limits import UserLimits
-from .llm import Llm
+from .llm import Llm, Provider
 from .reports.service import ReportError, ReportService
 from .store import Store
 
@@ -38,13 +38,13 @@ async def lifespan(app: FastAPI):
     if not settings.jwt_key:
         raise RuntimeError("AGENT_JWT_KEY is missing. Set it to the ERP's Jwt:Key in kratix-agent/.env (see README.md).")
     erp_http = httpx.AsyncClient(base_url=settings.erp_api_url.rstrip("/") + "/", timeout=settings.erp_timeout_seconds)
-    if not settings.gemini_api_key:
-        raise RuntimeError("AGENT_GEMINI_API_KEY is missing. Set it in kratix-agent/.env (see README.md).")
-    llm_http = httpx.AsyncClient(base_url=settings.gemini_url.rstrip("/") + "/", timeout=settings.llm_timeout_seconds,
-                                 headers={"Authorization": f"Bearer {settings.gemini_api_key}"})
-    llm = Llm(llm_http, settings.gemini_model, parallel=settings.llm_parallel, queue_cap=settings.llm_queue_cap,
-              options={"temperature": settings.temperature, "max_tokens": settings.max_answer_tokens,
-                       "reasoning_effort": settings.reasoning_effort})
+    providers = _providers()
+    if not providers:
+        raise RuntimeError("No language model is configured. Set AGENT_GEMINI_API_KEY (and optionally AGENT_GROQ_API_KEY "
+                           "or AGENT_OLLAMA_URL) in kratix-agent/.env (see README.md).")
+    llm = Llm(providers, parallel=settings.llm_parallel, queue_cap=settings.llm_queue_cap,
+              first_token_seconds=settings.llm_first_token_seconds, breaker_failures=settings.llm_breaker_failures,
+              breaker_seconds=settings.llm_breaker_seconds)
     store = Store(settings.data_dir / "agent.db")
     cache = ResponseCache(settings.erp_cache_seconds)
     reports = ReportService(store, settings.data_dir, settings.company_name,
@@ -60,11 +60,32 @@ async def lifespan(app: FastAPI):
     for task in tasks:
         task.cancel()
     await erp_http.aclose()
-    await llm_http.aclose()
+    for provider in providers:
+        await provider.http.aclose()
     store.close()
 
 
-app = FastAPI(title="Kratix Agent", version="0.2.0", lifespan=lifespan)
+def _providers() -> list[Provider]:
+    """Gemini, then Groq, then a local Ollama: each one only if configured."""
+    def client(url: str, key: str = "") -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=url.rstrip("/") + "/", timeout=settings.llm_timeout_seconds,
+                                 headers={"Authorization": f"Bearer {key}"} if key else {})
+
+    common = {"temperature": settings.temperature, "max_tokens": settings.max_answer_tokens}
+    providers = []
+    if settings.gemini_api_key:
+        providers.append(Provider("gemini", client(settings.gemini_url, settings.gemini_api_key), settings.gemini_model,
+                                  {**common, "reasoning_effort": settings.reasoning_effort},
+                                  settings.gemini_price_in, settings.gemini_price_out, keeps_extra_fields=True))
+    if settings.groq_api_key:
+        providers.append(Provider("groq", client(settings.groq_url, settings.groq_api_key), settings.groq_model, common,
+                                  settings.groq_price_in, settings.groq_price_out))
+    if settings.ollama_url:
+        providers.append(Provider("ollama", client(settings.ollama_url), settings.ollama_model, common))
+    return providers
+
+
+app = FastAPI(title="Hisaab Assistant", version="0.2.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -189,11 +210,7 @@ def download_report(report_id: str, request: Request, user: CurrentUser = Depend
 @app.get("/health")
 async def health(request: Request) -> dict:
     llm: Llm = request.app.state.llm
-    status: dict = {"agent": "ok", "model": llm.model, "queued": llm.queued}
-    try:
-        status["llm"] = "ok" if await llm.reachable() else "key rejected or model not found"
-    except httpx.HTTPError:
-        status["llm"] = "unreachable"
+    status: dict = {"agent": "ok", "model": llm.model, "queued": llm.queued, "llm": await llm.reachable()}
     try:
         response = await request.app.state.erp_http.get("warehouses", timeout=5)
         status["erp"] = "ok" if response.status_code in (200, 401) else f"HTTP {response.status_code}"

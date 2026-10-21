@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Kratix.ERP.Auth;
 using Kratix.ERP.Data;
 using Kratix.ERP.Models;
 
@@ -71,6 +72,8 @@ public static class DemoData
               ON CONFLICT ("Id") DO UPDATE SET "LastReset" = EXCLUDED."LastReset";
             """, cancel);
         await transaction.CommitAsync(cancel);
+        DataVersion.Bump();
+        AccountCache.Clear();
         Console.WriteLine($"Demo data reset (dates moved {days} days forward).");
     }
 

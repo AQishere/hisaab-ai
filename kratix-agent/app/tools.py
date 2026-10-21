@@ -106,13 +106,28 @@ def _listing(rows: list[Any], label: str) -> dict[str, Any]:
     return result
 
 
+# Personal contact details never go to the model provider: the app's table shows them to the user instead.
+PRIVATE_FIELDS = {"phone", "contactPerson", "address"}
+
+
+def _private_removed(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_private_removed(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _private_removed(v) for k, v in value.items() if k not in PRIVATE_FIELDS}
+    return value
+
+
 def split(tool: Tool, result: Any) -> ToolOutput:
     """Short version for the model, full table for the app."""
     if not tool.table or not isinstance(result, dict) or not isinstance(result.get(tool.table), list):
-        return ToolOutput(result)
+        return ToolOutput(_private_removed(result))
     rows = result[tool.table]
     # Other lists (by customer, by product, daily) are cut too; totals carry the overall figures.
-    model = {k: v[:MODEL_ROWS] if isinstance(v, list) and k != "lots" else v for k, v in result.items()}
+    model = {k: v[:MODEL_ROWS] if isinstance(v, list) and k != "lots" else v for k, v in _private_removed(result).items()}
+    if any(PRIVATE_FIELDS & r.keys() for r in rows if isinstance(r, dict)):
+        model["privacy"] = ("Phone numbers, contact persons and addresses are not shown to you; the app lists them in "
+                            "the table under your answer. Do not say you lack them; point the user to that table.")
     if len(rows) > MODEL_ROWS:
         model["note"] = (f"Only the first {MODEL_ROWS} of {len(rows)} are listed here; the app shows the user all "
                          f"{len(rows)} under your answer. Use count and totals for overall figures.")

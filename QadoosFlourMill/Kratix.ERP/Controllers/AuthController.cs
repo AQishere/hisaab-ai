@@ -110,6 +110,7 @@ public class AuthController : ControllerBase
 
         user.PasswordHash = hasher.HashPassword(user, request.NewPassword!);
         await _db.SaveChangesAsync();
+        AccountCache.Forget(user.UserID);
 
         return Ok(new LoginResponseDto
         {

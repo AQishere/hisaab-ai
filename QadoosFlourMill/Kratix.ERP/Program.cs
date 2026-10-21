@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -41,7 +42,10 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowCredentials()
+            // The browser asks permission (an OPTIONS request) before each API call; remembering the answer saves a
+            // round trip per call, which is most of the wait on a hosted server.
+            .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
     });
 });
 
@@ -77,10 +81,12 @@ builder.Services
                 var principal = context.Principal!;
                 var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
                 var account = int.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
-                    ? await db.Users.AsNoTracking().Where(u => u.UserID == userId).Select(u => new { u.IsActive, u.Role, u.PasswordHash }).FirstOrDefaultAsync()
+                    ? await AccountCache.GetAsync(userId, () => db.Users.AsNoTracking().Where(u => u.UserID == userId)
+                        .Select(u => new AccountCache.Account(u.IsActive, u.Role, AccountRules.PasswordStamp(u.PasswordHash)))
+                        .FirstOrDefaultAsync())
                     : null;
                 if (account == null || !account.IsActive || account.Role != principal.FindFirstValue(ClaimTypes.Role) ||
-                    AccountRules.PasswordStamp(account.PasswordHash) != principal.FindFirstValue(AccountRules.PasswordStampClaim))
+                    account.PasswordStamp != principal.FindFirstValue(AccountRules.PasswordStampClaim))
                 {
                     context.Fail("The account was deactivated or its role or password changed. Sign in again.");
                 }
@@ -102,6 +108,14 @@ builder.Services.AddRateLimiter(options =>
 var demo = DemoData.Enabled(builder.Configuration);
 if (demo)
     builder.Services.AddHostedService<DemoResetService>();
+
+// JSON lists compress to about a tenth; sign-in responses are left out (they carry tokens next to user input).
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 builder.Services.AddScoped<BusinessWriteFilter>();
 builder.Services.AddControllers(options => options.Filters.AddService<BusinessWriteFilter>());
@@ -136,6 +150,7 @@ else
     app.UseHsts();
 }
 
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api/auth"), branch => branch.UseResponseCompression());
 app.UseCors("AllowFrontend");
 // The demo host ends HTTPS at its proxy and forwards plain HTTP, so redirecting there would loop.
 if (!demo)

@@ -60,6 +60,7 @@ export interface AgentStats {
   perDay: { date: string; questions: number; failed: number }[];
   perUser: { username: string; role: string; questions: number }[];
   tools: { name: string; calls: number; errors: number }[];
+  llm: { byProvider: Record<string, number>; fallbackQuestions: number; fallbackPercent: number; promptTokens: number; completionTokens: number; costUsd: number };
   feedback: { up: number; down: number };
   thumbsDown: { messageId: string; username: string | null; question: string | null; answer: string; comment: string | null; createdAt: string }[];
   reports: Record<string, number>;

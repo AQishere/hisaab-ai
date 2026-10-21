@@ -107,6 +107,9 @@ public class DashboardController : ControllerBase
     // The role dashboard. Every signed-in role gets one; each section is included only when the role may see
     // the pages behind it (same split as Auth/Roles.cs and ReportsController): floor roles get production,
     // stock and wheat; purchasing roles also get open purchase orders; sales/finance roles get sales and money.
+    private static readonly TimeSpan OverviewMaxAge = TimeSpan.FromMinutes(2);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(bool, bool, bool), (long Version, DashboardOverviewDto Dto)> OverviewCache = new();
+
     [HttpGet("overview")]
     [Authorize]
     public async Task<ActionResult<DashboardOverviewDto>> GetOverview()
@@ -114,6 +117,13 @@ public class DashboardController : ControllerBase
         var floor = User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Owner) || User.IsInRole(Roles.Operations) || User.IsInRole(Roles.Worker);
         var purchasing = User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Owner) || User.IsInRole(Roles.Operations);
         var salesFinance = User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Owner) || User.IsInRole(Roles.Sales);
+
+        // About 25 queries; reused until the next business write, or for OverviewMaxAge so "today" and overdue
+        // counts move on. Keyed by what the role may see, so no role gets another role's sections.
+        var key = (floor, purchasing, salesFinance);
+        var version = DataVersion.Current;
+        if (OverviewCache.TryGetValue(key, out var hit) && hit.Version == version && DateTime.Now - hit.Dto.AsOf < OverviewMaxAge)
+            return Ok(hit.Dto);
 
         var today = DateTime.Today;
         var dto = new DashboardOverviewDto { AsOf = DateTime.Now };
@@ -133,6 +143,7 @@ public class DashboardController : ControllerBase
         }
 
         dto.Kpis = BuildKpis(dto);
+        OverviewCache[key] = (version, dto);
         dto.Activity = await BuildActivity(floor, purchasing, salesFinance);
         return Ok(dto);
     }

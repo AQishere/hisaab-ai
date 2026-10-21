@@ -1,13 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import client from '../api/client';
 import type { Invoice, Payment, SalesOrder } from '../api/types';
 import { useFetch } from '../hooks/useFetch';
+import { usePagedList } from '../hooks/usePagedList';
 import { useToast } from '../hooks/useToast';
 import { formatDate, formatMoney, getErrorMessage, todayISO, formatNumber, unitLabel } from '../utils/format';
 import PageHeader from '../components/ui/PageHeader';
 import DataTable from '../components/ui/DataTable';
+import ListToolbar from '../components/ui/ListToolbar';
 import FormDialog from '../components/ui/FormDialog';
 import StatusChip from '../components/ui/StatusChip';
 import { DetailDialog, InfoGrid, SectionTitle } from '../components/ui/DetailDialog';
@@ -22,8 +24,9 @@ const addDays = (iso: string, days: number) => {
 };
 
 const Invoices: React.FC = () => {
-  const invoices = useFetch<Invoice[]>('/invoices');
-  const orders = useFetch<SalesOrder[]>('/salesorders');
+  const invoices = usePagedList<Invoice>('/invoices');
+  // Fully dispatched or closed orders without an invoice yet, worked out by the server.
+  const orders = useFetch<SalesOrder[]>('/salesorders?toInvoice=true');
   const toast = useToast();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -34,10 +37,7 @@ const Invoices: React.FC = () => {
   const payments = useFetch<Payment[]>(selected ? `/payments/invoice/${selected.invoiceID}` : null);
   const [payOpen, setPayOpen] = useState(false);
 
-  const invoiceable = useMemo(() => {
-    const invoiced = new Set(invoices.data?.map((i) => i.salesOrderID));
-    return orders.data?.filter((o) => (o.status === 'Dispatched' || o.status === 'Closed') && !invoiced.has(o.salesOrderID)) ?? [];
-  }, [orders.data, invoices.data]);
+  const invoiceable = orders.data ?? [];
 
   const order = invoiceable.find((o) => String(o.salesOrderID) === form.salesOrderID);
   const tax = Number(form.taxAmount) || 0;
@@ -59,6 +59,7 @@ const Invoices: React.FC = () => {
       toast(`${res.data.invoiceNumber} created for ${formatMoney(res.data.netAmount)}`);
       setCreateOpen(false);
       invoices.reload();
+      orders.reload();
     } catch (err) {
       setFormError(getErrorMessage(err));
     } finally {
@@ -93,16 +94,19 @@ const Invoices: React.FC = () => {
     <Box>
       <PageHeader title="Invoices" subtitle="Bills for dispatched sales orders and what is still owed" actions={newButton} />
 
+      <ListToolbar search={invoices.search} onSearch={invoices.setSearch} placeholder="Search invoice, customer, SO number or status" />
+
       <DataTable
-        rows={invoices.data}
+        rows={invoices.rows}
+        pagination={invoices.pagination}
         rowKey={(i) => i.invoiceID}
         loading={invoices.loading}
         error={invoices.error}
         onRetry={invoices.reload}
         onRowClick={setSelected}
-        emptyTitle="No invoices yet"
-        emptyHint="Invoices are created from sales orders once they are fully dispatched."
-        emptyAction={newButton}
+        emptyTitle={invoices.searching ? 'No invoices match the search' : 'No invoices yet'}
+        emptyHint={invoices.searching ? undefined : 'Invoices are created from sales orders once they are fully dispatched.'}
+        emptyAction={invoices.searching ? undefined : newButton}
         columns={[
           { key: 'no', label: 'Invoice', render: (i) => <strong>{i.invoiceNumber}</strong> },
           { key: 'cust', label: 'Customer', render: (i) => i.customerName },
@@ -247,7 +251,7 @@ const Invoices: React.FC = () => {
 
       {payOpen && (
         <PaymentDialog
-          invoices={invoices.data ?? []}
+          invoices={invoices.rows ?? []}
           fixedInvoiceID={selected?.invoiceID}
           onClose={() => setPayOpen(false)}
           onSaved={afterPayment}

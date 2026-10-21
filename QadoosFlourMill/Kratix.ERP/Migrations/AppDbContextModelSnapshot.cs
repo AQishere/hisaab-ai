@@ -188,6 +188,8 @@ namespace Kratix.ERP.Migrations
 
                     b.HasKey("DispatchID");
 
+                    b.HasIndex("DispatchedAt");
+
                     b.HasIndex("SalesOrderID");
 
                     b.ToTable("Dispatches");
@@ -327,6 +329,8 @@ namespace Kratix.ERP.Migrations
 
                     b.HasKey("ReceiptID");
 
+                    b.HasIndex("CreatedDate");
+
                     b.HasIndex("POID");
 
                     b.HasIndex("POLineItemID");
@@ -448,6 +452,10 @@ namespace Kratix.ERP.Migrations
                     b.HasKey("InvoiceID");
 
                     b.HasIndex("CustomerID");
+
+                    b.HasIndex("DueDate");
+
+                    b.HasIndex("InvoiceDate");
 
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
@@ -643,6 +651,8 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("InvoiceID");
 
+                    b.HasIndex("PaymentDate");
+
                     b.ToTable("Payments", t =>
                         {
                             t.HasCheckConstraint("CK_Payment_Amount", "\"PaymentAmount\" > 0");
@@ -737,6 +747,8 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("BatchNumber")
                         .IsUnique();
+
+                    b.HasIndex("ProductionDate");
 
                     b.ToTable("ProductionBatches", t =>
                         {
@@ -899,6 +911,8 @@ namespace Kratix.ERP.Migrations
 
                     b.HasIndex("CustomerID");
 
+                    b.HasIndex("SODate");
+
                     b.HasIndex("SONumber")
                         .IsUnique();
 
@@ -948,6 +962,8 @@ namespace Kratix.ERP.Migrations
                         .HasColumnType("character varying(16)");
 
                     b.HasKey("StockMovementID");
+
+                    b.HasIndex("RecordedAt");
 
                     b.HasIndex("InventoryID", "RecordedAt");
 

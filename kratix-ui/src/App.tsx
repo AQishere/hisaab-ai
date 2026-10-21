@@ -27,24 +27,24 @@ const Users = lazy(() => import('./pages/Users'));
 const InvoicePrint = lazy(() => import('./pages/InvoicePrint'));
 const Assistant = lazy(() => import('./pages/Assistant'));
 
-// Yellow fails contrast as text on white, so accent-coloured text uses dark gold in light mode.
+// Hisaab brand: the logo's deep green on warm off-white; in dark mode a lighter green stays readable on green-black.
 const ACCENT_VARS = {
   light: {
-    '--accent-text': '#854d0e',
-    '--accent-border': '#ca8a04',
-    '--headline': '#18181b',
-    '--tone-neutral': '#52525b',
-    '--tone-accent': '#854d0e',
+    '--accent-text': '#0e5a3a',
+    '--accent-border': '#0e5a3a',
+    '--headline': '#0e5a3a',
+    '--tone-neutral': '#5c6660',
+    '--tone-accent': '#0e5a3a',
     '--tone-warning': '#c2410c',
     '--tone-success': '#15803d',
     '--tone-error': '#b91c1c',
   },
   dark: {
-    '--accent-text': '#facc15',
-    '--accent-border': '#facc15',
-    '--headline': '#facc15',
-    '--tone-neutral': '#a1a1aa',
-    '--tone-accent': '#facc15',
+    '--accent-text': '#7fcea4',
+    '--accent-border': '#4fae7f',
+    '--headline': '#7fcea4',
+    '--tone-neutral': '#a3b0a8',
+    '--tone-accent': '#7fcea4',
     '--tone-warning': '#fb923c',
     '--tone-success': '#4ade80',
     '--tone-error': '#f87171',
@@ -58,30 +58,30 @@ const theme = createTheme({
   colorSchemes: {
     light: {
       palette: {
-        primary: { main: '#facc15', dark: '#eab308', light: '#fef9c3', contrastText: '#18181b' },
-        secondary: { main: '#52525b' },
+        primary: { main: '#0e5a3a', dark: '#0a4530', light: '#e4efe8', contrastText: '#fbf6ea' },
+        secondary: { main: '#5c6660' },
         success: { main: '#16a34a' },
         warning: { main: '#ea580c' },
         error: { main: '#dc2626' },
         info: { main: '#0891b2' },
-        background: { default: '#fafafa', paper: '#ffffff' },
-        text: { primary: '#18181b', secondary: '#71717a', disabled: '#a1a1aa' },
-        divider: '#e4e4e7',
-        action: { hover: '#f4f4f5', disabledBackground: '#e4e4e7' },
+        background: { default: '#f8f6f0', paper: '#ffffff' },
+        text: { primary: '#1b2420', secondary: '#66706a', disabled: '#a3aaa5' },
+        divider: '#e6e2d8',
+        action: { hover: '#f2efe6', disabledBackground: '#e6e2d8' },
       },
     },
     dark: {
       palette: {
-        primary: { main: '#facc15', dark: '#eab308', light: '#422006', contrastText: '#0a0a0a' },
-        secondary: { main: '#a1a1aa' },
+        primary: { main: '#4fae7f', dark: '#3d9a6c', light: '#14301f', contrastText: '#0b1410' },
+        secondary: { main: '#a3b0a8' },
         success: { main: '#4ade80' },
         warning: { main: '#fb923c' },
         error: { main: '#f87171' },
         info: { main: '#22d3ee' },
-        background: { default: '#0a0a0a', paper: '#141414' },
-        text: { primary: '#fafafa', secondary: '#a1a1aa', disabled: '#52525b' },
-        divider: '#262626',
-        action: { hover: '#1c1c1c', disabledBackground: '#262626' },
+        background: { default: '#0b1410', paper: '#121d18' },
+        text: { primary: '#f3efe4', secondary: '#a3b0a8', disabled: '#56635b' },
+        divider: '#223029',
+        action: { hover: '#18241e', disabledBackground: '#223029' },
       },
     },
   },

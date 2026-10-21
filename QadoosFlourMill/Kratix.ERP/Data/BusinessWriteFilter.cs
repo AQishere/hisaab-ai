@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Kratix.ERP.Auth;
 
 namespace Kratix.ERP.Data;
 
@@ -41,7 +42,13 @@ public sealed class BusinessWriteFilter(AppDbContext db) : IAsyncActionFilter
         }
         var status = (executed.Result as IStatusCodeActionResult)?.StatusCode ?? 200;
         if (!executed.ExceptionHandled && executed.Exception == null && !executed.Canceled && status < 400)
+        {
             await transaction.CommitAsync();
+            DataVersion.Bump();
+            // Only after the commit, or a request in between could cache the old account again.
+            if (context.RouteData.Values["controller"]?.ToString() == "Users")
+                AccountCache.Clear();
+        }
         // Disposal rolls back failed validation, exceptions, and partial saves.
     }
 }

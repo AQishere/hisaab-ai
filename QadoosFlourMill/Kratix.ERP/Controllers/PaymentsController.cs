@@ -21,13 +21,20 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<PaymentDTO>>> GetAll()
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list)
     {
-        var payments = await context.Payments
-            .Include(p => p.Invoice)
-            .ToListAsync();
+        IQueryable<Payment> query = context.Payments
+            .Include(p => p.Invoice).ThenInclude(i => i!.Customer);
+        if (list.Pattern is { } like)
+            query = query.Where(p => EF.Functions.ILike(p.Invoice!.InvoiceNumber, like, @"\") ||
+                EF.Functions.ILike(p.Invoice.Customer!.CustomerName, like, @"\") || EF.Functions.ILike(p.Reference!, like, @"\") ||
+                EF.Functions.ILike(p.PaymentMode, like, @"\"));
 
-        return Ok(payments.Select(p => MapToDTO(p)).ToList());
+        if (!list.Paged)
+            return Ok((await query.ToListAsync()).Select(p => MapToDTO(p)).ToList());
+        var total = await query.SumAsync(p => (decimal?)p.PaymentAmount) ?? 0;
+        var page = await Paging.PageAsync(query.OrderByDescending(p => p.PaymentDate).ThenByDescending(p => p.PaymentID), list);
+        return Ok(Paging.Result(page, p => MapToDTO(p), total));
     }
 
     [HttpGet("{id}")]
@@ -99,7 +106,7 @@ public class PaymentsController : ControllerBase
     {
         var payments = await context.Payments
             .Where(p => p.InvoiceID == invoiceId)
-            .Include(p => p.Invoice)
+            .Include(p => p.Invoice).ThenInclude(i => i!.Customer)
             .ToListAsync();
 
         return Ok(payments.Select(p => MapToDTO(p)).ToList());
@@ -112,6 +119,7 @@ public class PaymentsController : ControllerBase
             PaymentID = p.PaymentID,
             InvoiceID = p.InvoiceID,
             InvoiceNumber = p.Invoice?.InvoiceNumber,
+            CustomerName = p.Invoice?.Customer?.CustomerName,
             PaymentDate = p.PaymentDate,
             PaymentMode = p.PaymentMode,
             PaymentAmount = p.PaymentAmount,

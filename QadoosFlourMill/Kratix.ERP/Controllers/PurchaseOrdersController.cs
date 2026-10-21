@@ -20,16 +20,24 @@ public class PurchaseOrdersController : ControllerBase
         this.context = context;
     }
 
+    // ?status=Sent lists the open orders (receiving uses it); ?page pages the list (see Data/Paging.cs).
     [HttpGet]
-    public async Task<ActionResult<List<PurchaseOrderDTO>>> GetAll()
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list)
     {
-        var orders = await context.PurchaseOrders
+        IQueryable<PurchaseOrder> query = context.PurchaseOrders
             .Include(po => po.Supplier)
             .Include(po => po.POLineItems)
-            .ThenInclude(li => li.Product)
-            .ToListAsync();
+            .ThenInclude(li => li.Product);
+        if (!string.IsNullOrWhiteSpace(list.Status))
+            query = query.Where(po => po.Status == list.Status);
+        if (list.Pattern is { } like)
+            query = query.Where(po => EF.Functions.ILike(po.PONumber, like, @"\") || EF.Functions.ILike(po.Supplier!.SupplierName, like, @"\") ||
+                EF.Functions.ILike(po.Status, like, @"\"));
 
-        return Ok(orders.Select(po => MapToDTO(po)).ToList());
+        if (!list.Paged)
+            return Ok((await query.ToListAsync()).Select(po => MapToDTO(po)).ToList());
+        var page = await Paging.PageAsync(query.OrderByDescending(po => po.PODate).ThenByDescending(po => po.POID), list);
+        return Ok(Paging.Result(page, po => MapToDTO(po)));
     }
 
     [HttpGet("{id}")]

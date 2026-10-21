@@ -75,6 +75,25 @@ def build_stats(store: Store, days: int, now: datetime) -> dict[str, Any]:
             for f in rows["feedback"] if f["rating"] == -1
         ],
         "reports": dict(Counter(f"{r['type']}.{r['format']}" for r in rows["reports"])),
+        "llm": _llm_usage(entries),
+    }
+
+
+def _llm_usage(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Questions per provider, how often a fallback answered, tokens and estimated cost."""
+    providers: dict[str, int] = Counter()
+    for e in entries:
+        for name in (e.get("provider") or "").split(","):
+            if name:
+                providers[name] += 1
+    with_fallback = sum(1 for e in entries if e.get("fallbacks"))
+    return {
+        "byProvider": dict(providers),
+        "fallbackQuestions": with_fallback,
+        "fallbackPercent": round(100 * with_fallback / len(entries), 1) if entries else 0.0,
+        "promptTokens": sum(e.get("prompt_tokens") or 0 for e in entries),
+        "completionTokens": sum(e.get("completion_tokens") or 0 for e in entries),
+        "costUsd": round(sum(e.get("cost_usd") or 0 for e in entries), 4),
     }
 
 

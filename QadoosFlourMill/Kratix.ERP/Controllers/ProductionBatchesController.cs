@@ -22,14 +22,21 @@ public class ProductionBatchesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ProductionBatchDTO>>> GetAll()
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list)
     {
-        var batches = await context.ProductionBatches
+        IQueryable<ProductionBatch> query = context.ProductionBatches
             .Include(pb => pb.BatchMaterials)
-            .ThenInclude(bm => bm.Product)
-            .ToListAsync();
+            .ThenInclude(bm => bm.Product);
+        if (!string.IsNullOrWhiteSpace(list.Status))
+            query = query.Where(pb => pb.Status == list.Status);
+        if (list.Pattern is { } like)
+            query = query.Where(pb => EF.Functions.ILike(pb.BatchNumber, like, @"\") || EF.Functions.ILike(pb.OperatorName!, like, @"\") ||
+                EF.Functions.ILike(pb.Status, like, @"\"));
 
-        return Ok(batches.Select(b => MapToDTO(b)).ToList());
+        if (!list.Paged)
+            return Ok((await query.ToListAsync()).Select(b => MapToDTO(b)).ToList());
+        var page = await Paging.PageAsync(query.OrderByDescending(pb => pb.ProductionDate).ThenByDescending(pb => pb.BatchID), list);
+        return Ok(Paging.Result(page, b => MapToDTO(b)));
     }
 
     [HttpGet("{id}")]

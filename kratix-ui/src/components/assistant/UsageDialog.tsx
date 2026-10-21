@@ -77,6 +77,17 @@ const UsageDialog: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
               <Tile label="Thumbs up / down" value={`${stats.feedback.up} / ${stats.feedback.down}`} />
             </Box>
 
+            <Heading>AI providers</Heading>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5 }}>
+              <Tile
+                label="Answered by"
+                value={Object.entries(stats.llm.byProvider).map(([name, n]) => `${name} ${n}`).join(' · ') || '-'}
+              />
+              <Tile label="Needed a fallback" value={`${stats.llm.fallbackPercent}%`} />
+              <Tile label="Tokens in / out" value={`${stats.llm.promptTokens.toLocaleString()} / ${stats.llm.completionTokens.toLocaleString()}`} />
+              <Tile label="Estimated cost" value={`$${stats.llm.costUsd.toFixed(2)}`} />
+            </Box>
+
             <Heading>Thumbs down</Heading>
             {stats.thumbsDown.length === 0 ? (
               <Typography sx={{ fontSize: '13px', color: 'text.secondary' }}>No answers were marked wrong.</Typography>

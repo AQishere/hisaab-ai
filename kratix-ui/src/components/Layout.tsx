@@ -92,7 +92,7 @@ const Layout: React.FC = () => {
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
       <Box sx={{ px: 2, py: 2.25, borderBottom: 1, borderColor: 'divider' }}>
-        <BrandLogo height={30} />
+        <BrandLogo height={36} />
       </Box>
 
       <Box

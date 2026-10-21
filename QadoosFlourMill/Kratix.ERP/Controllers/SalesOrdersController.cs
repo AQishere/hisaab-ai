@@ -20,16 +20,27 @@ public class SalesOrdersController : ControllerBase
         this.context = context;
     }
 
+    // ?toInvoice=true lists the orders that can be invoiced now (fully dispatched or closed, no invoice yet).
     [HttpGet]
-    public async Task<ActionResult<List<SalesOrderDTO>>> GetAll()
+    public async Task<ActionResult> GetAll([FromQuery] ListQuery list, [FromQuery] bool toInvoice = false)
     {
-        var orders = await context.SalesOrders
+        IQueryable<SalesOrder> query = context.SalesOrders
             .Include(so => so.Customer)
             .Include(so => so.SOLineItems)
-            .ThenInclude(li => li.Product)
-            .ToListAsync();
+            .ThenInclude(li => li.Product);
+        if (toInvoice)
+            query = query.Where(so => (so.Status == "Dispatched" || so.Status == "Closed") &&
+                !context.Invoices.Any(i => i.SalesOrderID == so.SalesOrderID));
+        if (!string.IsNullOrWhiteSpace(list.Status))
+            query = query.Where(so => so.Status == list.Status);
+        if (list.Pattern is { } like)
+            query = query.Where(so => EF.Functions.ILike(so.SONumber, like, @"\") || EF.Functions.ILike(so.Customer!.CustomerName, like, @"\") ||
+                EF.Functions.ILike(so.Status, like, @"\"));
 
-        return Ok(orders.Select(o => MapToDTO(o)).ToList());
+        if (!list.Paged)
+            return Ok((await query.ToListAsync()).Select(o => MapToDTO(o)).ToList());
+        var page = await Paging.PageAsync(query.OrderByDescending(so => so.SODate).ThenByDescending(so => so.SalesOrderID), list);
+        return Ok(Paging.Result(page, o => MapToDTO(o)));
     }
 
     [HttpGet("{id}")]

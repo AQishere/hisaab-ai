@@ -8,7 +8,8 @@ import { getErrorMessage, formatNumber } from '../utils/format';
 import FormDialog from './ui/FormDialog';
 
 export default function PackagingReceiptButton({ onReceived }: { onReceived: () => void }) {
-  const orders = useFetch<PurchaseOrder[]>('/purchaseorders');
+  // Only open (sent) orders can be received against.
+  const orders = useFetch<PurchaseOrder[]>('/purchaseorders?status=Sent');
   const products = useFetch<Product[]>('/products');
   const warehouses = useFetch<Warehouse[]>('/warehouses');
   const toast = useToast();
