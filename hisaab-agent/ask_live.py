@@ -15,7 +15,7 @@ from pathlib import Path
 
 import httpx
 
-SETTINGS = Path(__file__).resolve().parent.parent / "QadoosFlourMill" / "Kratix.ERP" / "appsettings.Development.json"
+SETTINGS = Path(__file__).resolve().parent.parent / "CrescentFlourMill" / "Kratix.ERP" / "appsettings.Development.json"
 
 MVP_QUESTIONS = [
     "Which customers owe me money?",

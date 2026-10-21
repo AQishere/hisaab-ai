@@ -40,7 +40,7 @@ async function connect(url) {
 }
 
 async function main() {
-  const config = JSON.parse(fs.readFileSync(path.join(root, 'QadoosFlourMill/Kratix.ERP/appsettings.Development.json'), 'utf8'));
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'CrescentFlourMill/Kratix.ERP/appsettings.Development.json'), 'utf8'));
   const owner = config.DemoUsers.find(u => u.Role === 'Owner');
   const authResponse = await fetch('http://localhost:5071/api/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

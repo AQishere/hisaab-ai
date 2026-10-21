@@ -23,7 +23,7 @@ from app.llm import Llm
 from app.main import _providers
 
 QUESTIONS = Path(__file__).with_name("questions.json")
-DEV_SETTINGS = Path(__file__).resolve().parents[2] / "QadoosFlourMill" / "Kratix.ERP" / "appsettings.Development.json"
+DEV_SETTINGS = Path(__file__).resolve().parents[2] / "CrescentFlourMill" / "Kratix.ERP" / "appsettings.Development.json"
 
 
 def owner_token(erp_url: str) -> str:
