@@ -10,8 +10,8 @@ kind=${1:?api or agent}
 space=${2:?<hf-user>/<space-name>}
 root=$(cd "$(dirname "$0")/.." && pwd)
 case $kind in
-  api) source_dir=$root/QadoosFlourMill/Kratix.ERP; title="Kratix ERP API" ;;
-  agent) source_dir=$root/kratix-agent; title="Kratix ERP Assistant" ;;
+  api) source_dir=$root/QadoosFlourMill/Kratix.ERP; title="Hisaab ERP API" ;;
+  agent) source_dir=$root/hisaab-agent; title="Hisaab ERP Assistant" ;;
   *) echo "First argument must be api or agent" >&2; exit 1 ;;
 esac
 

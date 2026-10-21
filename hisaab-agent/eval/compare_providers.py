@@ -1,7 +1,7 @@
 """Ask the 30 questions in eval/questions.json once per configured provider, each provider on its own, and compare
 which tools they call. Shows where Groq or Ollama would answer a question differently from Gemini after a fallback.
 
-Usage (the ERP must be running; keys come from kratix-agent/.env like the agent's):
+Usage (the ERP must be running; keys come from hisaab-agent/.env like the agent's):
     .venv/Scripts/python -m eval.compare_providers                    # every provider with a key or URL
     .venv/Scripts/python -m eval.compare_providers --only gemini groq
 Signs in as the demo Owner: one-click demo sign-in when the ERP runs in demo mode, else the development password

@@ -36,12 +36,12 @@ async def _housekeeping(keeper: Housekeeping) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not settings.jwt_key:
-        raise RuntimeError("AGENT_JWT_KEY is missing. Set it to the ERP's Jwt:Key in kratix-agent/.env (see README.md).")
+        raise RuntimeError("AGENT_JWT_KEY is missing. Set it to the ERP's Jwt:Key in hisaab-agent/.env (see README.md).")
     erp_http = httpx.AsyncClient(base_url=settings.erp_api_url.rstrip("/") + "/", timeout=settings.erp_timeout_seconds)
     providers = _providers()
     if not providers:
         raise RuntimeError("No language model is configured. Set AGENT_GEMINI_API_KEY (and optionally AGENT_GROQ_API_KEY "
-                           "or AGENT_OLLAMA_URL) in kratix-agent/.env (see README.md).")
+                           "or AGENT_OLLAMA_URL) in hisaab-agent/.env (see README.md).")
     llm = Llm(providers, parallel=settings.llm_parallel, queue_cap=settings.llm_queue_cap,
               first_token_seconds=settings.llm_first_token_seconds, breaker_failures=settings.llm_breaker_failures,
               breaker_seconds=settings.llm_breaker_seconds)

@@ -1,4 +1,4 @@
-// Kratix Assistant (kratix-agent, FastAPI on :5080). Same sign-in token as the ERP; the agent checks it itself.
+// Hisaab Assistant (hisaab-agent, FastAPI on :5080). Same sign-in token as the ERP; the agent checks it itself.
 import { session } from '../auth/session';
 
 // 127.0.0.1, not localhost: on Windows "localhost" tries IPv6 first, which the agent does not listen on.
@@ -74,7 +74,7 @@ export class AgentError extends Error {
   }
 }
 
-const OFFLINE = 'The assistant is not reachable. Check that kratix-agent is running on port 5080.';
+const OFFLINE = 'The assistant is not reachable. Check that hisaab-agent is running on port 5080.';
 
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);

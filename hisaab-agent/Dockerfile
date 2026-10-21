@@ -8,6 +8,6 @@ COPY app ./app
 # restart, which is fine for the demo.
 ENV TZ=Asia/Karachi \
     PYTHONUNBUFFERED=1 \
-    AGENT_DATA_DIR=/tmp/kratix-agent
+    AGENT_DATA_DIR=/tmp/hisaab-agent
 EXPOSE 10000
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]

@@ -6,7 +6,7 @@ AGENT_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    """Read from environment variables prefixed AGENT_ or from kratix-agent/.env."""
+    """Read from environment variables prefixed AGENT_ or from hisaab-agent/.env."""
 
     model_config = SettingsConfigDict(env_file=AGENT_DIR / ".env", env_prefix="AGENT_", extra="ignore")
 

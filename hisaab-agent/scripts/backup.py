@@ -1,6 +1,6 @@
 """Back up the agent's SQLite file now, alongside the ERP backups. Safe while the agent is running.
 
-Usage (from kratix-agent/):
+Usage (from hisaab-agent/):
     .venv/Scripts/python scripts/backup.py                 # into data/backups/, keeping the newest 14
     .venv/Scripts/python scripts/backup.py D:/Backups      # into another folder (nothing is removed there)
 
