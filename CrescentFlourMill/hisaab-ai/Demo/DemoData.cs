@@ -49,7 +49,7 @@ public static class DemoData
         // The same lock as BusinessWriteFilter, so no write is half-way through while the data is replaced.
         await Execute(connection, transaction, """
             SET LOCAL lock_timeout = '60s';
-            SELECT pg_advisory_xact_lock(hashtext('Kratix.BusinessWrite'));
+            SELECT pg_advisory_xact_lock(hashtext('Hisaab.BusinessWrite'));
             DO $$ BEGIN
               EXECUTE (SELECT 'TRUNCATE ' || string_agg(format('%I', tablename), ', ') || ' RESTART IDENTITY CASCADE'
                        FROM pg_tables WHERE schemaname = 'public' AND tablename NOT IN ('__EFMigrationsHistory', 'DemoState'));

@@ -21,7 +21,7 @@ from .llm import Llm, Provider
 from .reports.service import ReportError, ReportService
 from .store import Store
 
-log = logging.getLogger("kratix.agent")
+log = logging.getLogger("hisaab.agent")
 
 
 async def _housekeeping(keeper: Housekeeping) -> None:

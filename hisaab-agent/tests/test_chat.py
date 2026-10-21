@@ -22,13 +22,13 @@ from tests.test_agent import answer, provider, scripted_llm, tool_call
 KEY = "test-key-that-is-at-least-32-characters-long"
 
 
-def token(user_id=1, username="owner", role="Owner", key=KEY, issuer="Hisaab.ERP", audience="kratix-ui", expires_in=3600):
+def token(user_id=1, username="owner", role="Owner", key=KEY, issuer="Hisaab.ERP", audience="hisaab-ui", expires_in=3600):
     return jwt.encode({NAME_ID_CLAIM: str(user_id), NAME_CLAIM: username, ROLE_CLAIM: role, "iss": issuer,
                        "aud": audience, "exp": int(time.time()) + expires_in}, key, algorithm="HS256")
 
 
 def check(t):
-    return verify(t, KEY, "Hisaab.ERP", "kratix-ui")
+    return verify(t, KEY, "Hisaab.ERP", "hisaab-ui")
 
 
 # ---------------------------------------------------------------- auth
@@ -52,7 +52,7 @@ def test_bad_tokens_are_refused(bad):
 
 def test_missing_key_is_refused():
     with pytest.raises(AuthError, match="AGENT_JWT_KEY"):
-        verify(token(), "", "Hisaab.ERP", "kratix-ui")
+        verify(token(), "", "Hisaab.ERP", "hisaab-ui")
 
 
 # ---------------------------------------------------------------- store

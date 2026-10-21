@@ -10,7 +10,7 @@ from typing import Any
 
 from .store import Store
 
-log = logging.getLogger("kratix.agent")
+log = logging.getLogger("hisaab.agent")
 ADMIN_ROLES = {"Owner", "Admin"}
 # A question counts as failed when the user got no answer.
 FAILED = {"error", "timeout"}

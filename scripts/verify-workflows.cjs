@@ -1,10 +1,10 @@
 // Run ONLY against the isolated review server/database, never the working demo.
-// ERP_TEST_BASE_URL=http://localhost:5071 ERP_TEST_DATABASE=KratixReview_... node scripts/verify-workflows.cjs
+// ERP_TEST_BASE_URL=http://localhost:5071 ERP_TEST_DATABASE=HisaabReview_... node scripts/verify-workflows.cjs
 const fs = require('fs');
 const assert = require('node:assert/strict');
 const base = process.env.ERP_TEST_BASE_URL;
-if (base !== 'http://localhost:5071' || !process.env.ERP_TEST_DATABASE?.startsWith('KratixReview_'))
-  throw Error('Start an isolated KratixReview_ database on localhost:5071 and set both test environment variables.');
+if (base !== 'http://localhost:5071' || !process.env.ERP_TEST_DATABASE?.startsWith('HisaabReview_'))
+  throw Error('Start an isolated HisaabReview_ database on localhost:5071 and set both test environment variables.');
 let token, checks = 0;
 const suffix = Date.now().toString(36);
 const date = new Date().toISOString().slice(0,10);
@@ -281,7 +281,7 @@ async function main() {
   const metrics=await get('/dashboard/metrics');
   same(metrics.salesThisMonth>=metrics.salesToday,true,'Month sales include today');
 
-  const {quantityBalance,wholeBags}=await import('../kratix-ui/src/utils/quantities.ts');
+  const {quantityBalance,wholeBags}=await import('../hisaab-ui/src/utils/quantities.ts');
   same(quantityBalance(1000.3,1000.1,0.2),0,'Frontend decimal reconciliation');
   same(wholeBags(0.3,0.1),true,'Frontend fractional bag size');
   same(wholeBags(0.31,0.1),false);

@@ -27,7 +27,7 @@ public sealed class BusinessWriteFilter(AppDbContext db) : IAsyncActionFilter
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         await db.Database.ExecuteSqlRawAsync("""
             SET LOCAL lock_timeout = '15s';
-            SELECT pg_advisory_xact_lock(hashtext('Kratix.BusinessWrite'));
+            SELECT pg_advisory_xact_lock(hashtext('Hisaab.BusinessWrite'));
             """);
         var executed = await next();
         if (executed.Exception is BusinessRuleException rule)

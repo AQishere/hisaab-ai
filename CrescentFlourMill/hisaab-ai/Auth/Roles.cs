@@ -11,7 +11,7 @@ public static class Roles
     public const string Worker = "Worker";
 }
 
-// Keep in sync with kratix-ui/src/auth/permissions.ts
+// Keep in sync with hisaab-ui/src/auth/permissions.ts
 public static class Policies
 {
     public const string Management = nameof(Management);

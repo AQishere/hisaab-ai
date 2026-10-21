@@ -2,17 +2,17 @@
 // ledger, balances and document numbers are all consistent. Then it moves each simulated day's timestamps onto that
 // day and dumps the database to CrescentFlourMill/hisaab-ai/Demo/seed.sql, which the API loads in demo mode.
 //
-// Needs: Docker container "kratix-pg" (postgres:17) on port 5433 and an empty database DEMO_GEN_DATABASE in it,
+// Needs: Docker container "hisaab-pg" (postgres:17) on port 5433 and an empty database DEMO_GEN_DATABASE in it,
 // and the API running on DEMO_GEN_BASE_URL against that database with ASPNETCORE_ENVIRONMENT=Development.
-//   DEMO_GEN_BASE_URL=http://localhost:5072 DEMO_GEN_DATABASE=kratix_demo_gen node scripts/demo-data/generate.cjs
+//   DEMO_GEN_BASE_URL=http://localhost:5072 DEMO_GEN_DATABASE=hisaab_demo_gen node scripts/demo-data/generate.cjs
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const base = process.env.DEMO_GEN_BASE_URL;
 const database = process.env.DEMO_GEN_DATABASE;
-if (!base || !database?.startsWith('kratix_demo_gen'))
-  throw Error('Set DEMO_GEN_BASE_URL and DEMO_GEN_DATABASE (kratix_demo_gen...); see the comment at the top.');
+if (!base || !database?.startsWith('hisaab_demo_gen'))
+  throw Error('Set DEMO_GEN_BASE_URL and DEMO_GEN_DATABASE (hisaab_demo_gen...); see the comment at the top.');
 const root = path.resolve(__dirname, '../..');
 const DAYS = 75;
 
@@ -285,8 +285,8 @@ BEGIN
 END $$;
 -- The seed is public: no hashes of the development passwords. The API sets an unusable one on every load.
 UPDATE "Users" SET "PasswordHash" = 'set-on-load';`;
-  execFileSync('docker', ['exec', '-i', 'kratix-pg', 'psql', '-v', 'ON_ERROR_STOP=1', '-q', '-U', 'postgres', '-d', database], { input: sql, stdio: ['pipe', 'inherit', 'inherit'] });
-  const dump = execFileSync('docker', ['exec', 'kratix-pg', 'pg_dump', '-U', 'postgres', '--data-only', '--column-inserts', '--no-owner',
+  execFileSync('docker', ['exec', '-i', 'hisaab-pg', 'psql', '-v', 'ON_ERROR_STOP=1', '-q', '-U', 'postgres', '-d', database], { input: sql, stdio: ['pipe', 'inherit', 'inherit'] });
+  const dump = execFileSync('docker', ['exec', 'hisaab-pg', 'pg_dump', '-U', 'postgres', '--data-only', '--column-inserts', '--no-owner',
     '--exclude-table=public."__EFMigrationsHistory"', database], { maxBuffer: 256 * 1024 * 1024 }).toString();
   const body = dump.split('\n').filter(l => !l.startsWith('\\') && !l.startsWith('--') && !/^SET |set_config\('search_path'/.test(l) && l.trim()).join('\n');
   const out = path.join(root, 'CrescentFlourMill/hisaab-ai/Demo/seed.sql');

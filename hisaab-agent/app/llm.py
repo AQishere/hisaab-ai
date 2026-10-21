@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-log = logging.getLogger("kratix.agent.llm")
+log = logging.getLogger("hisaab.agent.llm")
 
 
 class LlmError(Exception):
