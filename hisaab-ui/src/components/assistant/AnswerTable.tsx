@@ -22,6 +22,10 @@ const HEADERS: Record<string, string> = {
   creditLimitPKR: 'Credit limit (PKR)', outstandingBalancePKR: 'Outstanding (PKR)', inputKg: 'Input kg', outputKg: 'Output kg',
   wasteKg: 'Waste kg', yieldPercent: 'Yield %',
 };
+// Receivable ageing buckets arrive as code names (ReportsController).
+const BUCKETS: Record<string, string> = {
+  NotDue: 'Not due', Days1To30: '1-30 days', Days31To60: '31-60 days', Days61Plus: '61+ days',
+};
 const COLLAPSED_ROWS = 8;
 
 const header = (key: string) =>
@@ -34,7 +38,7 @@ const cell = (value: unknown): string => {
   if (value == null || value === '') return '-';
   if (typeof value === 'number') return formatNumber(value);
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (typeof value === 'string') return isDate(value) ? formatDate(value.slice(0, 10)) : value;
+  if (typeof value === 'string') return isDate(value) ? formatDate(value.slice(0, 10)) : BUCKETS[value] ?? value;
   if (Array.isArray(value)) {
     return value.map((item) => {
       if (item && typeof item === 'object') {

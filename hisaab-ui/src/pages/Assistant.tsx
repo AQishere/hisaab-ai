@@ -43,6 +43,13 @@ import AnswerTable from '../components/assistant/AnswerTable';
 import ReportDialog from '../components/assistant/ReportDialog';
 import UsageDialog from '../components/assistant/UsageDialog';
 
+// Models sometimes mark key figures as **bold** (Markdown); show them bold instead of with asterisks.
+// An unclosed ** while the answer is still streaming stays as typed until its closing pair arrives.
+const withBold = (text: string): React.ReactNode[] =>
+  text.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? <strong key={i}>{part.slice(2, -2)}</strong> : part,
+  );
+
 interface UiMessage {
   key: string;
   role: 'user' | 'assistant';
@@ -348,7 +355,7 @@ const Assistant: React.FC = () => {
                 )}
                 {m.content && (
                   <Typography sx={{ fontSize: '14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                    {m.content}
+                    {withBold(m.content)}
                     {m.streaming && <Box component="span" sx={{ display: 'inline-block', width: 7, height: 15, ml: 0.25, bgcolor: 'text.secondary', verticalAlign: 'text-bottom', animation: 'blink 1s steps(2) infinite', '@keyframes blink': { '50%': { opacity: 0 } } }} />}
                   </Typography>
                 )}
