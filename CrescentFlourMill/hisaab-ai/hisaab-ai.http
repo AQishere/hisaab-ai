@@ -1,0 +1,17 @@
+@Hisaab.ERP_HostAddress = http://localhost:5069
+
+# Log in with a demo account from appsettings.Development.json, then paste the token below.
+POST {{Hisaab.ERP_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "owner", "password": "", "rememberMe": false }
+
+###
+
+@token = paste-token-here
+
+GET {{Hisaab.ERP_HostAddress}}/api/dashboard/metrics
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###

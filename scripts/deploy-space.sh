@@ -10,7 +10,7 @@ kind=${1:?api or agent}
 space=${2:?<hf-user>/<space-name>}
 root=$(cd "$(dirname "$0")/.." && pwd)
 case $kind in
-  api) source_dir=$root/CrescentFlourMill/Kratix.ERP; title="Hisaab ERP API" ;;
+  api) source_dir=$root/CrescentFlourMill/hisaab-ai; title="Hisaab ERP API" ;;
   agent) source_dir=$root/hisaab-agent; title="Hisaab ERP Assistant" ;;
   *) echo "First argument must be api or agent" >&2; exit 1 ;;
 esac
@@ -33,7 +33,7 @@ sdk: docker
 app_port: 10000
 pinned: false
 ---
-Backend for the Kratix ERP portfolio demo.
+Backend for the Hisaab ERP portfolio demo.
 EOF
 
 hf upload "$space" "$stage" . --repo-type space --commit-message "Deploy $kind"

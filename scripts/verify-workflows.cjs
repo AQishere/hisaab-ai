@@ -20,7 +20,7 @@ const put=(p,b,status=204)=>request(p,'PUT',b,status);
 const get=p=>request(p);
 function same(actual, expected, message) { assert.equal(actual, expected, message); checks++; }
 async function main() {
-  const cfg=JSON.parse(fs.readFileSync('CrescentFlourMill/Kratix.ERP/appsettings.Development.json','utf8'));
+  const cfg=JSON.parse(fs.readFileSync('CrescentFlourMill/hisaab-ai/appsettings.Development.json','utf8'));
   const owner=cfg.DemoUsers.find(u=>u.Role==='Owner');
   token=(await post('/auth/login',{username:owner.Username,password:owner.Password},200)).token;
   const wh=await post('/warehouses',{warehouseName:'Review '+suffix,location:'Test only',capacity:100000});

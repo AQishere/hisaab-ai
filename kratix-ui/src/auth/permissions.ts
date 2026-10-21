@@ -13,7 +13,7 @@ const PURCHASING: Role[] = [...MANAGEMENT, 'Operations'];
 const FLOOR: Role[] = [...PURCHASING, 'Worker'];
 const SALES_FINANCE: Role[] = [...MANAGEMENT, 'Sales'];
 
-// Page access only; the API enforces the same rules (Kratix.ERP/Auth/Roles.cs).
+// Page access only; the API enforces the same rules (Hisaab.ERP/Auth/Roles.cs).
 export const PAGE_ACCESS: Record<string, Role[]> = {
   // Every role has a dashboard; the API returns only the sections that role may see.
   '/dashboard': [...FLOOR, 'Sales'],

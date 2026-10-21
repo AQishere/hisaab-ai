@@ -1,6 +1,6 @@
 """The agent's own data in SQLite: chat sessions, messages, the question log, reports and feedback.
 
-Kratix_ERP is never written to. Losing this file loses chat history and logs, never business data.
+Hisaab_ERP is never written to. Losing this file loses chat history and logs, never business data.
 """
 
 import json

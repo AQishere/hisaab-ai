@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # The ERP's Jwt:Key, Jwt:Issuer and Jwt:Audience. The agent verifies tokens itself; the ERP verifies them again.
     jwt_key: str = ""
-    jwt_issuer: str = "Kratix.ERP"
+    jwt_issuer: str = "Hisaab.ERP"
     jwt_audience: str = "kratix-ui"
 
     data_dir: Path = AGENT_DIR / "data"

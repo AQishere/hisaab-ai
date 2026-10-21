@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $base = 'http://localhost:5069'
-$settings = Get-Content 'CrescentFlourMill/Kratix.ERP/appsettings.Development.json' -Raw | ConvertFrom-Json
+$settings = Get-Content 'CrescentFlourMill/hisaab-ai/appsettings.Development.json' -Raw | ConvertFrom-Json
 $owner = $settings.DemoUsers | Where-Object Role -eq 'Owner' | Select-Object -First 1
 $login = Invoke-RestMethod -Method Post -Uri "$base/api/auth/login" -ContentType 'application/json' -Body (@{ username = $owner.Username; password = $owner.Password } | ConvertTo-Json)
 $headers = @{ Authorization = "Bearer $($login.token)" }
@@ -16,7 +16,7 @@ $cache = @{}
 foreach ($name in $lists.Keys) {
   $cache[$name] = Invoke-RestMethod -Uri "$base/api/$name" -Headers $headers
 }
-$routes = Get-Content 'CrescentFlourMill/Kratix.ERP/API_ENDPOINTS.md' |
+$routes = Get-Content 'CrescentFlourMill/hisaab-ai/API_ENDPOINTS.md' |
   ForEach-Object { if ($_ -match '^- GET (/api/[^\s]+)') { $Matches[1] } } |
   ForEach-Object { ($_ -split '\?')[0] } | Sort-Object -Unique
 $results = foreach ($route in $routes) {

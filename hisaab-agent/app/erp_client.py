@@ -33,7 +33,7 @@ class ResponseCache:
 
 
 class ErpClient:
-    """Read-only access to the Kratix ERP API as the signed-in user.
+    """Read-only access to the Hisaab ERP API as the signed-in user.
 
     Only GET is exposed, so the agent cannot change ERP data. Every call carries the
     user's own token, so the ERP applies that user's role rules to everything the agent sees.

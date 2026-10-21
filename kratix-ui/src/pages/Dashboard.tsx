@@ -24,7 +24,7 @@ import { ROLE_LABELS, type Role } from '../auth/permissions';
 import { formatCompact as compact, formatNumber } from '../utils/format';
 import { ColumnChart, HBars, LineChart, SegmentBar, type ChartPoint } from '../components/dashboard/charts';
 
-// Shapes of GET /api/dashboard/overview (Kratix.ERP/DTOs/DashboardOverviewDto.cs).
+// Shapes of GET /api/dashboard/overview (Hisaab.ERP/DTOs/DashboardOverviewDto.cs).
 interface Kpi { key: string; label: string; value: number | null; format: 'money' | 'kg' | 'bags' | 'percent'; caption: string; change: number | null; changeLabel: string | null }
 interface Attention { key: string; severity: 'error' | 'warning' | 'info'; title: string; detail: string; count: number | null; amount: number | null; link: string }
 interface Check { key: string; label: string }
