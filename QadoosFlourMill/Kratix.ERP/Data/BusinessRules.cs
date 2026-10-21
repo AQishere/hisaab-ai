@@ -23,11 +23,11 @@ public static class BusinessRules
         // Fixed allowlist: identifiers cannot be passed as SQL parameters.
         var sql = prefix switch
         {
-            "PO" => "SELECT NEXT VALUE FOR dbo.PurchaseOrderNumbers AS Value",
-            "SO" => "SELECT NEXT VALUE FOR dbo.SalesOrderNumbers AS Value",
-            "GE" => "SELECT NEXT VALUE FOR dbo.ReceiptNumbers AS Value",
-            "MB" => "SELECT NEXT VALUE FOR dbo.BatchNumbers AS Value",
-            "INV" => "SELECT NEXT VALUE FOR dbo.InvoiceNumbers AS Value",
+            "PO" => "SELECT nextval('\"PurchaseOrderNumbers\"') AS \"Value\"",
+            "SO" => "SELECT nextval('\"SalesOrderNumbers\"') AS \"Value\"",
+            "GE" => "SELECT nextval('\"ReceiptNumbers\"') AS \"Value\"",
+            "MB" => "SELECT nextval('\"BatchNumbers\"') AS \"Value\"",
+            "INV" => "SELECT nextval('\"InvoiceNumbers\"') AS \"Value\"",
             _ => throw new ArgumentOutOfRangeException(nameof(prefix))
         };
         var values = await db.Database.SqlQueryRaw<long>(sql).ToListAsync();

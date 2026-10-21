@@ -15,7 +15,8 @@ const SALES_FINANCE: Role[] = [...MANAGEMENT, 'Sales'];
 
 // Page access only; the API enforces the same rules (Kratix.ERP/Auth/Roles.cs).
 export const PAGE_ACCESS: Record<string, Role[]> = {
-  '/dashboard': MANAGEMENT,
+  // Every role has a dashboard; the API returns only the sections that role may see.
+  '/dashboard': [...FLOOR, 'Sales'],
   '/suppliers': PURCHASING,
   '/customers': SALES_FINANCE,
   '/products': PURCHASING,

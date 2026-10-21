@@ -8,7 +8,7 @@ import LoginIllustration from '../components/LoginIllustration';
 import BrandLogo from '../components/BrandLogo';
 import { homePath } from '../auth/permissions';
 import { session } from '../auth/session';
-import { DEMO_ACCOUNTS } from '../config/demoAccounts';
+import { DEMO_ACCOUNTS, DEMO_ROLES, PUBLIC_DEMO } from '../config/demoAccounts';
 import { getErrorMessage } from '../utils/format';
 
 
@@ -94,6 +94,23 @@ const Login: React.FC = () => {
     }
   };
 
+  const [demoUser, setDemoUser] = useState<string | null>(null);
+  const handleDemo = async (demoUsername: string) => {
+    setError('');
+    setDemoUser(demoUsername);
+    try {
+      const response = await client.post('/auth/demo-login', { username: demoUsername });
+      const { token, user } = response.data;
+      login(token, user, false);
+      navigate(homePath(user.role), { replace: true });
+    } catch (err) {
+      // The free server sleeps when idle; the first request after that can take up to a minute.
+      setError(getErrorMessage(err, 'The demo server did not answer. It may be waking up; try again in a moment.'));
+    } finally {
+      setDemoUser(null);
+    }
+  };
+
   return (
     <Box
       sx={(theme) => ({
@@ -156,6 +173,30 @@ const Login: React.FC = () => {
               </Alert>
             )}
 
+            {PUBLIC_DEMO ? (
+              <Box>
+                <Typography sx={{ fontSize: '14px', color: 'text.secondary', mb: 2 }}>
+                  Live demo with sample data, reset daily. Choose a role to sign in; each one sees only its own part of the mill.
+                </Typography>
+                <Box sx={{ display: 'grid', gap: 1 }}>
+                  {DEMO_ROLES.map((r) => (
+                    <Button
+                      key={r.username}
+                      variant={r.username === 'owner' ? 'contained' : 'outlined'}
+                      disabled={!!demoUser}
+                      onClick={() => handleDemo(r.username)}
+                      sx={{ justifyContent: 'space-between', textAlign: 'left', py: 1, px: 1.75, gap: 2 }}
+                    >
+                      <Box>
+                        <Box sx={{ fontSize: '14px', fontWeight: 700 }}>{r.role}</Box>
+                        <Box sx={{ fontSize: '12px', fontWeight: 400, opacity: 0.8 }}>{r.access}</Box>
+                      </Box>
+                      {demoUser === r.username && <CircularProgress size={18} color="inherit" />}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+            ) : (
             <Box component="form" onSubmit={handleSubmit} noValidate>
               <Box sx={{ mb: 2.5 }}>
                 <Typography component="label" htmlFor="username" sx={labelSx}>
@@ -220,6 +261,7 @@ const Login: React.FC = () => {
                 {loading ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
               </Button>
             </Box>
+            )}
           </Box>
 
           {DEMO_ACCOUNTS.length > 0 && (

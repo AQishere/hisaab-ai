@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Kratix.ERP.Auth;
 using Kratix.ERP.Data;
+using Kratix.ERP.Demo;
 using Kratix.ERP.DTOs;
 using Kratix.ERP.Models;
 
@@ -60,6 +61,29 @@ public class AuthController : ControllerBase
                 Email = user.Email ?? string.Empty,
                 Role = user.Role,
             },
+        });
+    }
+
+    // Public demo only (Demo:Enabled): sign in as one of the demo roles without a password.
+    [HttpPost("demo-login")]
+    [AllowAnonymous]
+    [EnableRateLimiting(LoginRateLimit)]
+    public async Task<ActionResult<LoginResponseDto>> DemoLogin([FromBody] DemoLoginRequestDto request)
+    {
+        if (!DemoData.Enabled(_config))
+            return NotFound();
+
+        var username = request.Username.Trim().ToLowerInvariant();
+        var user = DemoData.Accounts.Contains(username)
+            ? await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username && u.IsActive)
+            : null;
+        if (user == null)
+            return Unauthorized(new { message = "Unknown demo account" });
+
+        return Ok(new LoginResponseDto
+        {
+            Token = CreateToken(user, TokenLifetime),
+            User = new UserDto { Id = user.UserID.ToString(), Username = user.Username, Email = user.Email ?? string.Empty, Role = user.Role },
         });
     }
 

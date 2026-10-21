@@ -3,8 +3,8 @@ using System;
 using Kratix.ERP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -18,9 +18,9 @@ namespace Kratix.ERP.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.11")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.HasSequence("BatchNumbers");
 
@@ -36,67 +36,67 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("BatchMaterialID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BatchMaterialID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("BatchMaterialID"));
 
                     b.Property<DateTime?>("ApprovalDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int?>("ApprovedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("BatchID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsQualityApproved")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsReversed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("KgPerBag")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("MaterialType")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int?>("OutputInventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("PackedQuantityKg")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<int>("ProductID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("ReversalReason")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("ReversedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int?>("ReversedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int?>("SourceInventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("SourceLotNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int?>("SourceWarehouseID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("BatchMaterialID");
 
@@ -114,7 +114,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("BatchMaterials", t =>
                         {
-                            t.HasCheckConstraint("CK_Material_Quantities", "[Quantity] > 0 AND [PackedQuantityKg] >= 0 AND [PackedQuantityKg] <= [Quantity] AND [MaterialType] IN ('Input','Output','Waste')");
+                            t.HasCheckConstraint("CK_Material_Quantities", "\"Quantity\" > 0 AND \"PackedQuantityKg\" >= 0 AND \"PackedQuantityKg\" <= \"Quantity\" AND \"MaterialType\" IN ('Input','Output','Waste')");
                         });
                 });
 
@@ -122,39 +122,39 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("CustomerID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CustomerID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CustomerID"));
 
                     b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ContactPerson")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal>("CreditLimit")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<string>("CustomerName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("OutstandingBalance")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Type")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("CustomerID");
 
@@ -165,26 +165,26 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("DispatchID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DispatchID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("DispatchID"));
 
                     b.Property<DateTime>("DispatchedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("DriverName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int?>("RecordedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("SalesOrderID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("TruckNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("DispatchID");
 
@@ -197,26 +197,26 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("DispatchLineID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DispatchLineID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("DispatchLineID"));
 
                     b.Property<int>("DispatchID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("InventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<int>("SOLineItemID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Unit")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("DispatchLineID");
 
@@ -228,7 +228,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("DispatchLines", t =>
                         {
-                            t.HasCheckConstraint("CK_DispatchLine_Quantity", "[Quantity] > 0");
+                            t.HasCheckConstraint("CK_DispatchLine_Quantity", "\"Quantity\" > 0");
                         });
                 });
 
@@ -236,94 +236,94 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("ReceiptID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReceiptID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ReceiptID"));
 
                     b.Property<DateTime?>("ArrivalDateTime")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("BinCode")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("DriverName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("DriverPhone")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("GrainType")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("GrossWeight")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal?>("Impurities")
                         .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("numeric(5,2)");
 
                     b.Property<string>("LotNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("Moisture")
                         .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("numeric(5,2)");
 
                     b.Property<decimal?>("NetWeight")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<int>("POID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int?>("POLineItemID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("QCResult")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ReceiptNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ReceiptType")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)")
+                        .HasColumnType("character varying(16)")
                         .HasDefaultValue("Weighed");
 
                     b.Property<int?>("ReceivedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("ReceivedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal?>("ReceivedQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("TareWeight")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("TruckNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("VoidReason")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int?>("WarehouseID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("ReceiptID");
 
@@ -340,7 +340,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("InboundReceipts", t =>
                         {
-                            t.HasCheckConstraint("CK_Receipt_Status", "[Status] IN ('GateEntry','Weighed','QCApproved','Rejected','Received','Voided') AND [ReceiptType] IN ('Weighed','Counted') AND ([ReceivedQuantity] IS NULL OR [ReceivedQuantity] > 0)");
+                            t.HasCheckConstraint("CK_Receipt_Status", "\"Status\" IN ('GateEntry','Weighed','QCApproved','Rejected','Received','Voided') AND \"ReceiptType\" IN ('Weighed','Counted') AND (\"ReceivedQuantity\" IS NULL OR \"ReceivedQuantity\" > 0)");
                         });
                 });
 
@@ -348,40 +348,40 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("InventoryID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InventoryID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("InventoryID"));
 
                     b.Property<string>("BinCode")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("LastUpdatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("LotNumber")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int>("ProductID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("QuantityAvailable")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<DateTime>("ReceivedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("StockForm")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)")
+                        .HasColumnType("character varying(16)")
                         .HasDefaultValue("Standard");
 
                     b.Property<int>("WarehouseID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("InventoryID");
 
@@ -390,9 +390,11 @@ namespace Kratix.ERP.Migrations
                     b.HasIndex("ProductID", "WarehouseID", "StockForm", "BinCode", "LotNumber")
                         .IsUnique();
 
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("ProductID", "WarehouseID", "StockForm", "BinCode", "LotNumber"), false);
+
                     b.ToTable("Inventories", t =>
                         {
-                            t.HasCheckConstraint("CK_Inventory_Quantity", "[QuantityAvailable] >= 0 AND [StockForm] IN ('Standard','Bulk')");
+                            t.HasCheckConstraint("CK_Inventory_Quantity", "\"QuantityAvailable\" >= 0 AND \"StockForm\" IN ('Standard','Bulk')");
                         });
                 });
 
@@ -400,48 +402,48 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("InvoiceID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("InvoiceID"));
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("CustomerID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("DueDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("InvoiceDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("NetAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<int>("SalesOrderID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<decimal>("TotalQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.HasKey("InvoiceID");
 
@@ -455,7 +457,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("Invoices", t =>
                         {
-                            t.HasCheckConstraint("CK_Invoice_Amounts", "[TotalAmount] >= 0 AND [TaxAmount] >= 0 AND [NetAmount] = [TotalAmount] + [TaxAmount] AND [Status] IN ('Unpaid','PartiallyPaid','Paid')");
+                            t.HasCheckConstraint("CK_Invoice_Amounts", "\"TotalAmount\" >= 0 AND \"TaxAmount\" >= 0 AND \"NetAmount\" = \"TotalAmount\" + \"TaxAmount\" AND \"Status\" IN ('Unpaid','PartiallyPaid','Paid')");
                         });
                 });
 
@@ -463,46 +465,46 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("InvoiceLineID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceLineID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("InvoiceLineID"));
 
                     b.Property<int>("InvoiceID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsLegacySnapshot")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("KgPerBag")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("ProductCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int>("ProductID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("RatePerUnit")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<string>("Unit")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("InvoiceLineID");
 
@@ -517,31 +519,31 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("LineItemID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LineItemID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("LineItemID"));
 
                     b.Property<int>("POID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("ProductID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("RatePerUnit")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<decimal>("ReceivedQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.HasKey("LineItemID");
 
@@ -551,7 +553,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("POLineItems", t =>
                         {
-                            t.HasCheckConstraint("CK_POLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [ReceivedQuantity] >= 0 AND [ReceivedQuantity] <= [Quantity] * 1.05");
+                            t.HasCheckConstraint("CK_POLine_Quantities", "\"Quantity\" > 0 AND \"RatePerUnit\" > 0 AND \"TotalAmount\" >= 0 AND \"ReceivedQuantity\" >= 0 AND \"ReceivedQuantity\" <= \"Quantity\" * 1.05");
                         });
                 });
 
@@ -559,39 +561,39 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("PackingRunID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PackingRunID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PackingRunID"));
 
                     b.Property<decimal>("BagsPacked")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<int>("BatchMaterialID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("BulkInventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("FinishedInventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("KgPerBag")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<int>("PackagingInventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("PackedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal>("QuantityKg")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<int?>("RecordedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("PackingRunID");
 
@@ -605,7 +607,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("PackingRuns", t =>
                         {
-                            t.HasCheckConstraint("CK_Packing_Quantities", "[QuantityKg] > 0 AND [KgPerBag] > 0 AND [BagsPacked] > 0 AND [BagsPacked] = FLOOR([BagsPacked]) AND [QuantityKg] = [KgPerBag] * [BagsPacked]");
+                            t.HasCheckConstraint("CK_Packing_Quantities", "\"QuantityKg\" > 0 AND \"KgPerBag\" > 0 AND \"BagsPacked\" > 0 AND \"BagsPacked\" = FLOOR(\"BagsPacked\") AND \"QuantityKg\" = \"KgPerBag\" * \"BagsPacked\"");
                         });
                 });
 
@@ -613,29 +615,29 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("PaymentID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PaymentID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PaymentID"));
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("InvoiceID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("PaymentAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("PaymentMode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Reference")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("PaymentID");
 
@@ -643,7 +645,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("Payments", t =>
                         {
-                            t.HasCheckConstraint("CK_Payment_Amount", "[PaymentAmount] > 0");
+                            t.HasCheckConstraint("CK_Payment_Amount", "\"PaymentAmount\" > 0");
                         });
                 });
 
@@ -651,33 +653,33 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("ProductID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ProductID"));
 
                     b.Property<string>("Category")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("HSNCode")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("KgPerBag")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("ProductCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Unit")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("ProductID");
 
@@ -691,45 +693,45 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("BatchID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BatchID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("BatchID"));
 
                     b.Property<string>("BatchNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("OperatorName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("ProductionDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("ShiftNumber")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("TotalInputQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("TotalOutputQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("TotalWasteQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("YieldPercentage")
                         .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("numeric(5,2)");
 
                     b.HasKey("BatchID");
 
@@ -738,7 +740,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("ProductionBatches", t =>
                         {
-                            t.HasCheckConstraint("CK_Batch_Status", "[Status] IN ('Planned','InProgress','Completed') AND [TotalInputQuantity] >= 0 AND [TotalOutputQuantity] >= 0 AND [TotalWasteQuantity] >= 0");
+                            t.HasCheckConstraint("CK_Batch_Status", "\"Status\" IN ('Planned','InProgress','Completed') AND \"TotalInputQuantity\" >= 0 AND \"TotalOutputQuantity\" >= 0 AND \"TotalWasteQuantity\" >= 0");
                         });
                 });
 
@@ -746,39 +748,39 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("POID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("POID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("POID"));
 
                     b.Property<string>("ClosedReason")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("ExpectedDeliveryDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("LastModifiedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("PODate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("PONumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int>("SupplierID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("POID");
 
@@ -791,7 +793,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("PurchaseOrders", t =>
                         {
-                            t.HasCheckConstraint("CK_PO_Status", "[Status] IN ('Draft','Sent','Received','Closed','Cancelled')");
+                            t.HasCheckConstraint("CK_PO_Status", "\"Status\" IN ('Draft','Sent','Received','Closed','Cancelled')");
                         });
                 });
 
@@ -799,46 +801,46 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("LineItemID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LineItemID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("LineItemID"));
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("DispatchDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("DispatchStatus")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("DispatchedQuantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("DriverName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int>("ProductID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<decimal>("RatePerUnit")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<int>("SalesOrderID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<string>("TruckNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("LineItemID");
 
@@ -848,7 +850,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("SOLineItems", t =>
                         {
-                            t.HasCheckConstraint("CK_SOLine_Quantities", "[Quantity] > 0 AND [RatePerUnit] > 0 AND [TotalAmount] >= 0 AND [DispatchedQuantity] >= 0 AND [DispatchedQuantity] <= [Quantity] AND [DispatchStatus] IN ('NotDispatched','PartiallyDispatched','Dispatched')");
+                            t.HasCheckConstraint("CK_SOLine_Quantities", "\"Quantity\" > 0 AND \"RatePerUnit\" > 0 AND \"TotalAmount\" >= 0 AND \"DispatchedQuantity\" >= 0 AND \"DispatchedQuantity\" <= \"Quantity\" AND \"DispatchStatus\" IN ('NotDispatched','PartiallyDispatched','Dispatched')");
                         });
                 });
 
@@ -856,40 +858,40 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("SalesOrderID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SalesOrderID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SalesOrderID"));
 
                     b.Property<string>("ClosedReason")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("CustomerID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("ExpectedDeliveryDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("SODate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("SONumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.HasKey("SalesOrderID");
 
@@ -902,7 +904,7 @@ namespace Kratix.ERP.Migrations
 
                     b.ToTable("SalesOrders", t =>
                         {
-                            t.HasCheckConstraint("CK_SO_Status", "[Status] IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Closed','Cancelled')");
+                            t.HasCheckConstraint("CK_SO_Status", "\"Status\" IN ('Quotation','Confirmed','PartiallyDispatched','Dispatched','Closed','Cancelled')");
                         });
                 });
 
@@ -910,40 +912,40 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("StockMovementID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("StockMovementID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("StockMovementID"));
 
                     b.Property<int>("InventoryID")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("MovementType")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
+                        .HasColumnType("character varying(32)");
 
                     b.Property<decimal>("QuantityChange")
                         .HasPrecision(15, 3)
-                        .HasColumnType("decimal(15,3)");
+                        .HasColumnType("numeric(15,3)");
 
                     b.Property<string>("Reason")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("RecordedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int?>("RecordedBy")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Reference")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Unit")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
+                        .HasColumnType("character varying(16)");
 
                     b.HasKey("StockMovementID");
 
@@ -956,34 +958,34 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("SupplierID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SupplierID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SupplierID"));
 
                     b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ContactPerson")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("NTN")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PaymentTerms")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("SupplierName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.HasKey("SupplierID");
 
@@ -996,29 +998,29 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("UserID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("UserID"));
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Email")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Username")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.HasKey("UserID");
 
@@ -1032,28 +1034,28 @@ namespace Kratix.ERP.Migrations
                 {
                     b.Property<int>("WarehouseID")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("WarehouseID"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("WarehouseID"));
 
                     b.Property<decimal>("Capacity")
                         .HasPrecision(15, 2)
-                        .HasColumnType("decimal(15,2)");
+                        .HasColumnType("numeric(15,2)");
 
                     b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
                     b.Property<string>("Location")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("WarehouseName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("WarehouseID");
 

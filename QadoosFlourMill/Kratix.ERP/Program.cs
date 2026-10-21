@@ -4,17 +4,28 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using Kratix.ERP.Auth;
 using Kratix.ERP.Controllers;
 using Kratix.ERP.Data;
+using Kratix.ERP.Demo;
+
+// DateTime values are the mill's local wall-clock time, as they were on SQL Server: store them as Postgres
+// "timestamp without time zone" instead of requiring UTC.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=(localdb)\\mssqllocaldb;Database=Kratix_ERP;Trusted_Connection=true;";
+var connection = DatabaseUrl.ToConnectionString(builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is missing (see README.md)."));
+// The database session runs in the server's time zone; otherwise "today" filters compare local dates with UTC ones.
+if (string.IsNullOrEmpty(connection.Timezone))
+    connection.Timezone = TimeZoneInfo.Local.HasIanaId ? TimeZoneInfo.Local.Id
+        : TimeZoneInfo.TryConvertWindowsIdToIanaId(TimeZoneInfo.Local.Id, out var iana) ? iana : "UTC";
+var connectionString = connection.ConnectionString;
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseNpgsql(connectionString));
 
 // Only these website addresses may call the API (Cors:AllowedOrigins; override per server with Cors__AllowedOrigins__0, ...).
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -88,6 +99,10 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
 });
 
+var demo = DemoData.Enabled(builder.Configuration);
+if (demo)
+    builder.Services.AddHostedService<DemoResetService>();
+
 builder.Services.AddScoped<BusinessWriteFilter>();
 builder.Services.AddControllers(options => options.Filters.AddService<BusinessWriteFilter>());
 builder.Services.AddEndpointsApiExplorer();
@@ -104,7 +119,10 @@ using (var scope = app.Services.CreateScope())
     {
         await DemoUserSeeder.SeedAsync(dbContext, app.Configuration);
     }
-    await InitialAdmin.EnsureAsync(dbContext, app.Configuration);
+    if (demo)
+        await DemoData.ResetIfDueAsync(dbContext);
+    else
+        await InitialAdmin.EnsureAsync(dbContext, app.Configuration);
     Console.WriteLine("Database migrated and ready.");
 }
 
@@ -119,10 +137,29 @@ else
 }
 
 app.UseCors("AllowFrontend");
-app.UseHttpsRedirection();
+// The demo host ends HTTPS at its proxy and forwards plain HTTP, so redirecting there would loop.
+if (!demo)
+    app.UseHttpsRedirection();
+if (demo)
+{
+    // Visitors share the demo accounts: one must not lock the others out by changing passwords or users.
+    app.Use(async (context, next) =>
+    {
+        var path = context.Request.Path;
+        if (!HttpMethods.IsGet(context.Request.Method) &&
+            (path.StartsWithSegments("/api/users") || path.StartsWithSegments("/api/auth/change-password")))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { message = "Account changes are turned off in the public demo." });
+            return;
+        }
+        await next();
+    });
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();

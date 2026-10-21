@@ -21,12 +21,12 @@ public sealed class BusinessWriteFilter(AppDbContext db) : IAsyncActionFilter
             return;
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        // Read committed, not serializable: Postgres would take the serializable snapshot before the lock wait
+        // and validate against stale data. With every writer behind the lock, each statement sees the latest commit.
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         await db.Database.ExecuteSqlRawAsync("""
-            DECLARE @result int;
-            EXEC @result = sys.sp_getapplock @Resource = 'Kratix.BusinessWrite',
-                @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 15000;
-            IF @result < 0 THROW 51000, 'Another update is taking too long. Please retry.', 1;
+            SET LOCAL lock_timeout = '15s';
+            SELECT pg_advisory_xact_lock(hashtext('Kratix.BusinessWrite'));
             """);
         var executed = await next();
         if (executed.Exception is BusinessRuleException rule)

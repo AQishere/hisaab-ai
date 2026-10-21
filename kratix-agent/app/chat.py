@@ -14,7 +14,7 @@ from .auth import CurrentUser
 from .config import settings
 from .erp_client import ErpClient, ErpError, ResponseCache
 from .limits import LimitError, UserLimits
-from .llm import BusyError, Llm, OllamaError
+from .llm import BusyError, Llm, LlmError
 from .store import LogEntry, Store
 from .tools import ToolContext
 
@@ -114,7 +114,7 @@ class ChatService:
             status, error, user_message = "timeout", "request timed out", "That took too long. Please try again."
         except BusyError:
             status, error, user_message = "busy", "model queue full", "The assistant is busy, try again in a minute."
-        except OllamaError as exc:
+        except LlmError as exc:
             error, user_message = str(exc), "The assistant is offline. Please try again shortly."
         except ErpError as exc:
             error = exc.message

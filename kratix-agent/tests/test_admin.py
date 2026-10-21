@@ -81,7 +81,7 @@ def test_stats_add_up():
     _, bad = answered(store, question="Sales today?", answer="Your role cannot see that.", user_id=2, status="denied",
                       first_token_ms=600, total_ms=700,
                       tool_calls=[{"name": "sales_report", "arguments": {}, "error": "Your role does not have access", "ms": 3}])
-    store.log(entry(status="error", error="Ollama down", total_ms=50))
+    store.log(entry(status="error", error="model down", total_ms=50))
     store.log(entry(status="busy", total_ms=0))
     store.set_feedback(bad, 2, -1, "Should see sales")
 

@@ -144,7 +144,7 @@ How to answer:
 
 
 def _tool_call_from_text(content: str) -> dict[str, Any] | None:
-    """Qwen sometimes writes a tool call as plain JSON instead of a structured call; accept that too."""
+    """A model sometimes writes a tool call as plain JSON instead of a structured call; accept that too."""
     match = re.search(r"\{.*\}", content, re.DOTALL)
     if not match:
         return None
@@ -153,7 +153,8 @@ def _tool_call_from_text(content: str) -> dict[str, Any] | None:
     except ValueError:
         return None
     if isinstance(data, dict) and data.get("name") in TOOLS:
-        return {"function": {"name": data["name"], "arguments": data.get("arguments") or {}}}
+        return {"id": "call_text", "type": "function",
+                "function": {"name": data["name"], "arguments": json.dumps(data.get("arguments") or {})}}
     return None
 
 
@@ -202,12 +203,11 @@ class Agent:
         started = time.perf_counter()
         content, calls, streamed, holding = "", [], False, not stream
         try:
-            # The tool list goes with every call, including the one that writes the answer: the same prompt prefix
-            # lets Ollama reuse its cache instead of re-reading about 1,400 tokens (+0.3-0.5 s) next time.
+            # The tool list goes with every call, including the one that writes the answer, so the model can still
+            # ask for more data instead of guessing.
             async for chunk in self._llm.stream_chat(messages, TOOL_SCHEMAS):
-                message = chunk.get("message") or {}
-                calls += message.get("tool_calls") or []
-                text = message.get("content") or ""
+                calls += chunk.get("tool_calls") or []
+                text = chunk.get("content") or ""
                 if not text:
                     continue
                 content += text
@@ -311,9 +311,9 @@ class Agent:
             started = time.perf_counter()
             outputs = await asyncio.gather(*(self._run_tool(call, erp, context, conversation) for call in calls))
             result.erp_ms += _ms(time.perf_counter() - started)
-            for record, output in outputs:
+            for call, (record, output) in zip(calls, outputs):
                 result.tool_calls.append(record)
-                messages.append({"role": "tool", "tool_name": record.name,
+                messages.append({"role": "tool", "tool_call_id": call["id"], "name": record.name,
                                  "content": json.dumps(output.model, default=str)})
                 if output.data:
                     yield Event("data", output.data)

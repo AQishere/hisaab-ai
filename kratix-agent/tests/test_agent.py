@@ -9,27 +9,30 @@ from app.llm import Llm
 from tests.test_tools import FakeErp
 
 
-def _ndjson(reply: dict) -> bytes:
-    """Ollama's streamed reply: tool calls in one chunk, text a few characters at a time, then done."""
-    chunks = []
+def _sse(reply: dict) -> bytes:
+    """Gemini's streamed reply (OpenAI format): tool calls in one chunk, text a few characters at a time, then [DONE]."""
+    deltas = []
     if reply.get("tool_calls"):
-        chunks.append({"message": {"role": "assistant", "content": "", "tool_calls": reply["tool_calls"]}, "done": False})
+        deltas.append({"role": "assistant", "tool_calls": [
+            {"index": i, "id": f"call_{i}", "type": "function", **{k: v for k, v in c.items() if k != "function"},
+             "function": {"name": c["function"]["name"], "arguments": json.dumps(c["function"]["arguments"])}}
+            for i, c in enumerate(reply["tool_calls"])]})
     text = reply.get("content") or ""
-    chunks += [{"message": {"role": "assistant", "content": text[i:i + 4]}, "done": False} for i in range(0, len(text), 4)]
-    chunks.append({"message": {"role": "assistant", "content": ""}, "done": True})
-    return "".join(json.dumps(c) + "\n" for c in chunks).encode()
+    deltas += [{"content": text[i:i + 4]} for i in range(0, len(text), 4)]
+    chunks = [{"choices": [{"index": 0, "delta": d}]} for d in deltas]
+    return "".join(f"data: {json.dumps(c)}\n\n" for c in chunks).encode() + b"data: [DONE]\n\n"
 
 
 def scripted_llm(replies: list[dict]) -> tuple[Llm, list[dict]]:
-    """An Ollama stand-in that streams the given assistant messages in order and records each request."""
+    """A Gemini stand-in that streams the given assistant messages in order and records each request."""
     requests: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(json.loads(request.content))
-        return httpx.Response(200, content=_ndjson(replies[len(requests) - 1]))
+        return httpx.Response(200, content=_sse(replies[len(requests) - 1]))
 
-    http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://ollama")
-    return Llm(http, "qwen2.5:7b", keep_alive="30m", parallel=1, queue_cap=10, options={"temperature": 0.1}), requests
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://gemini/")
+    return Llm(http, "gemini-test", parallel=1, queue_cap=10, options={"temperature": 0.1}), requests
 
 
 def tool_call(name: str, arguments: dict | None = None) -> dict:
@@ -59,8 +62,35 @@ def test_tool_call_then_streamed_answer():
     assert result.answer == "Wheat stock is 1,234.57 kg." and [c.name for c in result.tool_calls] == ["business_overview"]
     tool_message = requests[1]["messages"][-1]
     assert tool_message["role"] == "tool" and "1234.57" in tool_message["content"]
-    # Same prompt prefix on every call: tools and keep_alive are sent each time, streaming on.
-    assert all(r["tools"] and r["keep_alive"] == "30m" and r["stream"] for r in requests)
+    assert tool_message["tool_call_id"] == requests[1]["messages"][-2]["tool_calls"][0]["id"] == "call_0"
+    # Tools go with every call, streaming on.
+    assert all(r["tools"] and r["stream"] and r["model"] == "gemini-test" for r in requests)
+
+
+def test_thought_signature_is_sent_back_with_the_tool_call():
+    signed = {"function": {"name": "business_overview", "arguments": {}},
+              "extra_content": {"google": {"thought_signature": "sig"}}}
+    llm, requests = scripted_llm([{"role": "assistant", "content": "", "tool_calls": [signed]},
+                                  {"role": "assistant", "content": "Ok."}])
+    asyncio.run(collect(Agent(llm), "Overview"))
+    sent = requests[1]["messages"][-2]["tool_calls"][0]
+    assert sent["extra_content"] == {"google": {"thought_signature": "sig"}}
+
+
+def test_tool_call_streamed_in_pieces_is_joined():
+    pieces = [{"index": 0, "id": "c1", "type": "function", "function": {"name": "sales_report", "arguments": '{"peri'}},
+              {"index": 0, "function": {"arguments": 'od": "today"}'}}]
+    body = "".join(f"data: {json.dumps({'choices': [{'delta': {'tool_calls': [p]}}]})}\n\n" for p in pieces)
+
+    async def run():
+        transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body + "data: [DONE]\n\n"))
+        llm = Llm(httpx.AsyncClient(transport=transport, base_url="http://gemini/"), "m", parallel=1, queue_cap=1,
+                  options={})
+        return [c async for c in llm.stream_chat([], None)]
+
+    (chunk,) = asyncio.run(run())
+    assert chunk["tool_calls"] == [{"id": "c1", "type": "function",
+                                    "function": {"name": "sales_report", "arguments": '{"period": "today"}'}}]
 
 
 def test_tool_call_written_as_plain_json_is_accepted_and_not_shown():

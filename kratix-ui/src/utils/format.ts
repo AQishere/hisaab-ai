@@ -3,6 +3,10 @@ import { isAxiosError } from 'axios';
 export const formatNumber = (value: number | null | undefined, maxDecimals = 2) =>
   value == null ? '-' : value.toLocaleString(undefined, { maximumFractionDigits: maxDecimals });
 
+// Short axis labels: 1.2k, 3.4M.
+export const formatCompact = (value: number) =>
+  Math.abs(value) >= 1e6 ? `${+(value / 1e6).toFixed(1)}M` : Math.abs(value) >= 1e3 ? `${+(value / 1e3).toFixed(1)}k` : `${+value.toFixed(1)}`;
+
 export const formatMoney = (value: number | null | undefined) =>
   value == null ? '-' : `PKR ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 import httpx
@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .admin import ADMIN_ROLES, Housekeeping, build_stats
-from .agent import Agent, system_prompt
+from .agent import Agent
 from .auth import AuthError, CurrentUser, bearer_token, verify
 from .chat import ChatError, ChatService, report_out
 from .config import settings
@@ -20,19 +20,8 @@ from .limits import UserLimits
 from .llm import Llm
 from .reports.service import ReportError, ReportService
 from .store import Store
-from .tools import TOOL_SCHEMAS
 
 log = logging.getLogger("kratix.agent")
-
-
-async def _warm_up(llm: Llm) -> None:
-    try:
-        # The shared prefix (company, rules, tool list) is what Ollama reuses for every user.
-        await llm.warm_up([{"role": "system", "content": system_prompt("Owner", date.today())},
-                           {"role": "user", "content": "Hello"}], TOOL_SCHEMAS)
-        log.info("Model %s loaded", llm.model)
-    except Exception as exc:  # noqa: BLE001 - the agent still starts; /health shows the model is not loaded
-        log.warning("Model warm-up failed: %s", exc)
 
 
 async def _housekeeping(keeper: Housekeeping) -> None:
@@ -49,11 +38,13 @@ async def lifespan(app: FastAPI):
     if not settings.jwt_key:
         raise RuntimeError("AGENT_JWT_KEY is missing. Set it to the ERP's Jwt:Key in kratix-agent/.env (see README.md).")
     erp_http = httpx.AsyncClient(base_url=settings.erp_api_url.rstrip("/") + "/", timeout=settings.erp_timeout_seconds)
-    ollama_http = httpx.AsyncClient(base_url=settings.ollama_url, timeout=settings.ollama_timeout_seconds)
-    llm = Llm(ollama_http, settings.ollama_model, keep_alive=settings.keep_alive, parallel=settings.llm_parallel,
-              queue_cap=settings.llm_queue_cap,
-              options={"temperature": settings.temperature, "num_ctx": settings.context_tokens,
-                       "num_predict": settings.max_answer_tokens})
+    if not settings.gemini_api_key:
+        raise RuntimeError("AGENT_GEMINI_API_KEY is missing. Set it in kratix-agent/.env (see README.md).")
+    llm_http = httpx.AsyncClient(base_url=settings.gemini_url.rstrip("/") + "/", timeout=settings.llm_timeout_seconds,
+                                 headers={"Authorization": f"Bearer {settings.gemini_api_key}"})
+    llm = Llm(llm_http, settings.gemini_model, parallel=settings.llm_parallel, queue_cap=settings.llm_queue_cap,
+              options={"temperature": settings.temperature, "max_tokens": settings.max_answer_tokens,
+                       "reasoning_effort": settings.reasoning_effort})
     store = Store(settings.data_dir / "agent.db")
     cache = ResponseCache(settings.erp_cache_seconds)
     reports = ReportService(store, settings.data_dir, settings.company_name,
@@ -64,12 +55,12 @@ async def lifespan(app: FastAPI):
                                  reports)
     keeper = Housekeeping(store, settings.data_dir, log_days=settings.log_retention_days,
                           deleted_session_days=settings.deleted_session_days, backups_kept=settings.backups_kept)
-    tasks = [asyncio.create_task(_warm_up(llm)), asyncio.create_task(_housekeeping(keeper))]
+    tasks = [asyncio.create_task(_housekeeping(keeper))]
     yield
     for task in tasks:
         task.cancel()
     await erp_http.aclose()
-    await ollama_http.aclose()
+    await llm_http.aclose()
     store.close()
 
 
@@ -198,12 +189,11 @@ def download_report(report_id: str, request: Request, user: CurrentUser = Depend
 @app.get("/health")
 async def health(request: Request) -> dict:
     llm: Llm = request.app.state.llm
-    status: dict = {"agent": "ok", "model": llm.model, "modelLoaded": False, "queued": llm.queued}
+    status: dict = {"agent": "ok", "model": llm.model, "queued": llm.queued}
     try:
-        status["ollama"] = "ok" if await llm.pulled() else f"model {llm.model} not pulled"
-        status["modelLoaded"] = await llm.loaded()
-    except (httpx.HTTPError, ValueError):
-        status["ollama"] = "unreachable"
+        status["llm"] = "ok" if await llm.reachable() else "key rejected or model not found"
+    except httpx.HTTPError:
+        status["llm"] = "unreachable"
     try:
         response = await request.app.state.erp_http.get("warehouses", timeout=5)
         status["erp"] = "ok" if response.status_code in (200, 401) else f"HTTP {response.status_code}"

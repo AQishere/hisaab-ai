@@ -246,13 +246,26 @@ def test_expired_erp_session_ends_with_an_error_event():
     assert store.log_rows()[0]["status"] == "error" and store.messages(session["id"]) == []
 
 
-def test_ollama_down_ends_with_offline_message():
+def test_rate_limited_api_ends_with_busy_message():
+    from app.llm import Llm
+    llm = Llm(httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(429)), base_url="http://gemini/"),
+              "gemini-test", parallel=1, queue_cap=10, options={})
+    store = Store(":memory:")
+    chat = ChatService(store, Agent(llm), llm, UserLimits(20), erp_http(ERP_DATA), ResponseCache(30))
+    user = check(token())
+    session = store.create_session(user.id, user.username)
+    got = events(chat.start(user, session["id"], "Hi"))
+    assert got[-1] == ("error", {"message": "The assistant is busy, try again in a minute."})
+    assert store.log_rows()[0]["status"] == "busy"
+
+
+def test_model_unreachable_ends_with_offline_message():
     def handler(request):
         raise httpx.ConnectError("refused")
 
     from app.llm import Llm
-    llm = Llm(httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://ollama"), "qwen2.5:7b",
-              keep_alive="30m", parallel=1, queue_cap=10, options={})
+    llm = Llm(httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://gemini/"), "gemini-test",
+              parallel=1, queue_cap=10, options={})
     store = Store(":memory:")
     chat = ChatService(store, Agent(llm), llm, UserLimits(20), erp_http(ERP_DATA), ResponseCache(30))
     user = check(token())
@@ -269,7 +282,7 @@ def test_ollama_down_ends_with_offline_message():
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "jwt_key", KEY)
     monkeypatch.setattr(settings, "data_dir", tmp_path)
-    monkeypatch.setattr(settings, "ollama_url", "http://127.0.0.1:9")  # warm-up fails fast; the model is faked below
+    monkeypatch.setattr(settings, "gemini_api_key", "test")  # the model is faked below
     with TestClient(main.app) as test_client:
         chat, store, _ = service([{"role": "assistant", "content": "Hello."}], store=main.app.state.store)
         main.app.state.chat = chat
